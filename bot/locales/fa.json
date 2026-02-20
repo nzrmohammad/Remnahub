@@ -1,5 +1,6 @@
 {
     "lang_select_title": "🌐 لطفاً زبان خود را انتخاب کنید\nPlease select your language",
+    "auth_select_option": "لطفاً یکی از گزینه‌های زیر را انتخاب کنید:",
     "btn_login": "🔐 ورود",
     "btn_new_service": "📋 درخواست سرویس جدید",
     "login_checking": "🔍 در حال بررسی حساب شما...",

@@ -20,6 +20,7 @@ router = Router(name="auth")
 
 # ── Language selection ─────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("lang:"))
 async def cb_lang_select(call: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
     lang = call.data.split(":")[1]  # "fa" or "en"
@@ -36,13 +37,13 @@ async def cb_lang_select(call: CallbackQuery, session: AsyncSession, state: FSMC
 
     # Edit same message → show Login / New Service
     await call.message.edit_text(
-        f"🌐 {'زبان فارسی انتخاب شد' if lang == 'fa' else 'English selected'}\n\n"
-        + t(lang, "btn_login") + " | " + t(lang, "btn_new_service"),
+        t(lang, "auth_select_option"),
         reply_markup=auth_menu_kb(lang),
     )
 
 
 # ── Login flow ─────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "auth:login")
 async def cb_login(call: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
@@ -85,13 +86,13 @@ async def cb_auth_back(call: CallbackQuery, session: AsyncSession, state: FSMCon
     lang = user.lang if user else data.get("lang", "en")
     await call.answer()
     await call.message.edit_text(
-        f"🌐 {'فارسی' if lang == 'fa' else 'English'}\n\n"
-        + t(lang, "btn_login") + " | " + t(lang, "btn_new_service"),
+        t(lang, "auth_select_option"),
         reply_markup=auth_menu_kb(lang),
     )
 
 
 # ── New service request ────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "auth:new_service")
 async def cb_new_service(call: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
@@ -130,7 +131,11 @@ async def handle_new_service_info(
 
     # Forward to admin group topic
     if settings.admin_group_id:
-        user_link = f"@{message.from_user.username}" if message.from_user.username else f"tg://user?id={message.from_user.id}"
+        user_link = (
+            f"@{message.from_user.username}"
+            if message.from_user.username
+            else f"tg://user?id={message.from_user.id}"
+        )
         admin_text = (
             f"📋 <b>New Service Request</b>\n"
             f"👤 {message.from_user.full_name} ({user_link})\n"
