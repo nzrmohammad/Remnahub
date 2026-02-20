@@ -98,6 +98,11 @@ sudo sh get-docker.sh
 ### 2. Transfer the project to your Server
 You can either push your code to a private GitHub repository and `git clone` it on the server, or use an SFTP client (like WinSCP or FileZilla) to copy the `Remnabot` folder to your server (e.g., into `/root/Remnabot`).
 
+```bash
+git clone https://github.com/nzrmohammad/Remnahub.git
+cd Remnahub
+```
+
 ### 3. Setup the Environment File
 Navigate to the project folder on your server:
 ```bash
