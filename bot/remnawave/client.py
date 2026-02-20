@@ -23,8 +23,10 @@ class RemnawaveClient:
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
         url = f"{self._base_url}{path}"
+        log.info("remnawave_request", url=url, params=params)
         async with aiohttp.ClientSession(headers=self._headers, timeout=self._timeout) as session:
             async with session.get(url, params=params, ssl=False) as resp:
+                log.info("remnawave_response", status=resp.status, url=url)
                 if resp.status == 200:
                     return await resp.json()
                 log.warning("remnawave_api_error", status=resp.status, url=url)
@@ -35,10 +37,13 @@ class RemnawaveClient:
         log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
         page = 1
         while True:
+            log.info("fetching_page", page=page)
             result = await self._get("/api/users", params={"page": page, "per_page": 100})
             if result is None:
+                log.info("result_is_none", page=page)
                 break
             users = result.get("response", {}).get("users", [])
+            log.info("page_result", page=page, users_count=len(users))
             if not users:
                 break
             for u in users:
