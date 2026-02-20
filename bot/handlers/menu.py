@@ -62,10 +62,18 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
         remaining_gb = round(remaining_bytes / 1e9, 2)
 
         expire_at = resp.get("expireAt")
+        expire_display = "—"
         if expire_at:
             expire_date = expire_at[:10]
-        else:
-            expire_date = "—"
+            try:
+                from datetime import date
+
+                expire_dt = date.fromisoformat(expire_date)
+                today = date.today()
+                days_left = (expire_dt - today).days
+                expire_display = f"{expire_date} ({days_left} روز)"
+            except Exception:
+                expire_display = expire_date
 
         status = resp.get("status", "—")
         status_fa = {"ACTIVE": "✅ فعال", "DISABLED": "❌ غیرفعال", "EXPIRED": "⏰ منقضی"}.get(
@@ -82,10 +90,11 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
             f"🗂️ <b>{'حجم کل' if lang == 'fa' else 'Total'}</b>: {total_gb} GB\n"
             f"🔥 <b>{'حجم مصرف شده' if lang == 'fa' else 'Used'}</b>: {used_gb} GB\n"
             f"📥 <b>{'حجم باقیمانده' if lang == 'fa' else 'Remaining'}</b>: {remaining_gb} GB\n"
+            f"⚡️ <b>{'مصرف امروز' if lang == 'fa' else 'Today'}</b>: 0 MB\n"
             f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
             f"──────────────────\n"
-            f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_date}\n"
-            f"🔑 <b>UUID</b>: <code>{user.remnawave_uuid[:8]}...</code>"
+            f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_display}\n"
+            f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{user.remnawave_uuid}</code>"
         )
     else:
         text = t(lang, "no_data")
