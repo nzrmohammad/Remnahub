@@ -21,6 +21,7 @@ async def _get_user(session: AsyncSession, telegram_id: int) -> User | None:
 
 # ── Back to main menu ──────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "menu:back")
 async def cb_menu_back(call: CallbackQuery, session: AsyncSession) -> None:
     user = await _get_user(session, call.from_user.id)
@@ -33,6 +34,7 @@ async def cb_menu_back(call: CallbackQuery, session: AsyncSession) -> None:
 
 
 # ── Quick Stats ────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "menu:stats")
 async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
@@ -49,15 +51,41 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
 
     if data:
         resp = data.get("response", data)
-        used_gb   = round((resp.get("usedTrafficBytes", 0) or 0) / 1e9, 2)
-        total_gb  = round((resp.get("trafficLimitBytes", 0) or 0) / 1e9, 2)
-        expire    = resp.get("expireAt", "—")
-        status    = resp.get("status", "—")
+        user_traffic = resp.get("userTraffic", {})
+
+        used_bytes = user_traffic.get("usedTrafficBytes", 0) or 0
+        total_bytes = resp.get("trafficLimitBytes", 0) or 0
+        remaining_bytes = max(0, total_bytes - used_bytes) if total_bytes > 0 else 0
+
+        used_gb = round(used_bytes / 1e9, 2)
+        total_gb = round(total_bytes / 1e9, 2) if total_bytes > 0 else "∞"
+        remaining_gb = round(remaining_bytes / 1e9, 2)
+
+        expire_at = resp.get("expireAt")
+        if expire_at:
+            expire_date = expire_at[:10]
+        else:
+            expire_date = "—"
+
+        status = resp.get("status", "—")
+        status_fa = {"ACTIVE": "✅ فعال", "DISABLED": "❌ غیرفعال", "EXPIRED": "⏰ منقضی"}.get(
+            status, status
+        )
+
+        online_at = user_traffic.get("onlineAt")
+        last_connection = online_at[:19].replace("T", " ") if online_at else "—"
+
         text = (
             f"📊 <b>{'آمار فوری' if lang == 'fa' else 'Quick Stats'}</b>\n\n"
-            f"• {'مصرف' if lang == 'fa' else 'Used'}: <b>{used_gb} GB</b> / {total_gb} GB\n"
-            f"• {'انقضا' if lang == 'fa' else 'Expires'}: <b>{expire}</b>\n"
-            f"• {'وضعیت' if lang == 'fa' else 'Status'}: <b>{status}</b>"
+            f"👤 <b>{'نام' if lang == 'fa' else 'Name'}</b>: {resp.get('username', '—')} ({status_fa})\n"
+            f"──────────────────\n"
+            f"🗂️ <b>{'حجم کل' if lang == 'fa' else 'Total'}</b>: {total_gb} GB\n"
+            f"🔥 <b>{'حجم مصرف شده' if lang == 'fa' else 'Used'}</b>: {used_gb} GB\n"
+            f"📥 <b>{'حجم باقیمانده' if lang == 'fa' else 'Remaining'}</b>: {remaining_gb} GB\n"
+            f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
+            f"──────────────────\n"
+            f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_date}\n"
+            f"🔑 <b>UUID</b>: <code>{user.remnawave_uuid[:8]}...</code>"
         )
     else:
         text = t(lang, "no_data")
@@ -66,6 +94,7 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
 
 
 # ── Account Management ─────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "menu:account")
 async def cb_account(call: CallbackQuery, session: AsyncSession) -> None:
@@ -91,6 +120,7 @@ async def cb_account(call: CallbackQuery, session: AsyncSession) -> None:
 
 # ── Wallet ─────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "menu:wallet")
 async def cb_wallet(call: CallbackQuery, session: AsyncSession) -> None:
     user = await _get_user(session, call.from_user.id)
@@ -101,6 +131,7 @@ async def cb_wallet(call: CallbackQuery, session: AsyncSession) -> None:
 
 
 # ── Services ───────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "menu:services")
 async def cb_services(call: CallbackQuery, session: AsyncSession) -> None:
@@ -128,6 +159,7 @@ async def cb_services(call: CallbackQuery, session: AsyncSession) -> None:
 
 # ── Tutorial ───────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "menu:tutorial")
 async def cb_tutorial(call: CallbackQuery, session: AsyncSession) -> None:
     user = await _get_user(session, call.from_user.id)
@@ -137,6 +169,7 @@ async def cb_tutorial(call: CallbackQuery, session: AsyncSession) -> None:
 
 
 # ── Settings ───────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "menu:settings")
 async def cb_settings(call: CallbackQuery, session: AsyncSession) -> None:
@@ -157,10 +190,12 @@ async def cb_change_lang(call: CallbackQuery, session: AsyncSession) -> None:
 
 # ── Support ────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "menu:support")
 async def cb_support(call: CallbackQuery, session: AsyncSession) -> None:
     from bot.states.fsm import Support
     from aiogram.fsm.context import FSMContext
+
     user = await _get_user(session, call.from_user.id)
     lang = user.lang if user else "en"
     await call.answer()
@@ -168,6 +203,7 @@ async def cb_support(call: CallbackQuery, session: AsyncSession) -> None:
 
 
 # ── Profile ────────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "menu:profile")
 async def cb_profile(call: CallbackQuery, session: AsyncSession) -> None:
@@ -188,9 +224,11 @@ async def cb_profile(call: CallbackQuery, session: AsyncSession) -> None:
 
 # ── Admin Panel ────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "menu:panel")
 async def cb_panel(call: CallbackQuery, session: AsyncSession) -> None:
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
     user = await _get_user(session, call.from_user.id)
     lang = user.lang if user else "en"
     await call.answer()
@@ -199,13 +237,17 @@ async def cb_panel(call: CallbackQuery, session: AsyncSession) -> None:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🖥️ Open Panel",
-            url=cfg.remnawave_api_url,
-        )],
-        [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🖥️ Open Panel",
+                    url=cfg.remnawave_api_url,
+                )
+            ],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
+        ]
+    )
     await call.message.edit_text(
         f"🖥️ {'پنل مدیریت' if lang == 'fa' else 'Admin Panel'}",
         reply_markup=kb,
