@@ -32,18 +32,21 @@ class RemnawaveClient:
     async def get_user_by_telegram_id(self, telegram_id: int) -> dict | None:
         """Return user dict from Remnawave if telegram_id matches, else None."""
         log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
-        result = await self._get("/api/users")
-        if result is None:
-            return None
-        # Remnawave returns {"response": {"total": N, "users": [...]}}
-        if isinstance(result, dict):
+        page = 1
+        while True:
+            result = await self._get("/api/users", params={"page": page, "per_page": 100})
+            if result is None:
+                break
             users = result.get("response", {}).get("users", [])
-            if isinstance(users, list):
-                for u in users:
-                    tg_id = u.get("telegramId")
-                    log.info("checking_user", telegramId=tg_id, match=tg_id == telegram_id)
-                    if tg_id == telegram_id:
-                        return u
+            if not users:
+                break
+            for u in users:
+                tg_id = u.get("telegramId")
+                if tg_id == telegram_id:
+                    log.info("user_found", telegramId=tg_id)
+                    return u
+            page += 1
+        log.info("user_not_found", telegram_id=telegram_id)
         return None
         # Remnawave returns {"response": {"total": N, "users": [...]}}
         if isinstance(result, dict):
