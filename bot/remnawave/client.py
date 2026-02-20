@@ -39,8 +39,19 @@ class RemnawaveClient:
         if result is None:
             log.info("user_not_found", telegram_id=telegram_id)
             return None
-        user = result.get("response", {})
-        log.info("user_found", telegramId=user.get("telegramId"))
+        response_data = result.get("response")
+        if isinstance(response_data, list):
+            if response_data:
+                user = response_data[0]
+                log.info("user_found", telegramId=user.get("telegramId"))
+                return user
+            log.info("user_not_found", telegram_id=telegram_id)
+            return None
+        user = response_data if isinstance(response_data, dict) else None
+        if user:
+            log.info("user_found", telegramId=user.get("telegramId"))
+        else:
+            log.info("user_not_found", telegram_id=telegram_id)
         return user
 
     async def get_user_stats(self, uuid: str) -> dict | None:
