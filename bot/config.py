@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # DB
     database_url: str
+    postgres_password: str
 
     # Redis
     redis_url: str = "redis://redis:6379/0"

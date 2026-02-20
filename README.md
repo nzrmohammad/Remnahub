@@ -100,7 +100,6 @@ You can either push your code to a private GitHub repository and `git clone` it 
 
 ```bash
 git clone https://github.com/nzrmohammad/Remnahub.git
-cd Remnahub
 ```
 
 ### 3. Setup the Environment File

@@ -13,7 +13,7 @@ from bot.db.models import User  # noqa: F401
 
 
 async def on_startup(bot, dispatcher) -> None:
-    """Create tables if they do not exist (dev convenience). Use Alembic in production."""
+    """Create tables if they do not exist..."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logging.info("Database tables ensured.")
@@ -31,7 +31,7 @@ async def main() -> None:
     )
 
     bot, dp = create_dispatcher()
-    dp.startup.register(lambda: on_startup(bot, dp))
+    dp.startup.register(on_startup)
 
     logging.info("Starting Remnabot polling...")
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
