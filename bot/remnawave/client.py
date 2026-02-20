@@ -19,10 +19,11 @@ class RemnawaveClient:
             "Authorization": f"Bearer {settings.remnawave_api_token}",
             "Content-Type": "application/json",
         }
+        self._timeout = aiohttp.ClientTimeout(total=30)
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
         url = f"{self._base_url}{path}"
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(headers=self._headers, timeout=self._timeout) as session:
             async with session.get(url, params=params, ssl=False) as resp:
                 if resp.status == 200:
                     return await resp.json()
@@ -47,14 +48,6 @@ class RemnawaveClient:
                     return u
             page += 1
         log.info("user_not_found", telegram_id=telegram_id)
-        return None
-        # Remnawave returns {"response": {"total": N, "users": [...]}}
-        if isinstance(result, dict):
-            users = result.get("response", {}).get("users", [])
-            if isinstance(users, list):
-                for u in users:
-                    if u.get("telegramId") == telegram_id:
-                        return u
         return None
 
     async def get_user_stats(self, uuid: str) -> dict | None:
