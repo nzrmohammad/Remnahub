@@ -31,17 +31,12 @@ class RemnawaveClient:
 
     async def get_user_by_telegram_id(self, telegram_id: int) -> dict | None:
         """Return user dict from Remnawave if telegram_id matches, else None."""
-        result = await self._get("/api/users", params={"telegramId": telegram_id})
+        result = await self._get("/api/users", params={"telegramId": str(telegram_id)})
         if result is None:
             return None
-        # Remnawave returns {"response": {"users": [...]}} or similar
-        # Handle both list and paginated response shapes
+        # Remnawave returns {"response": [...]} - list directly in response
         if isinstance(result, dict):
-            users = (
-                result.get("response", {}).get("users")
-                or result.get("users")
-                or []
-            )
+            users = result.get("response", [])
             if isinstance(users, list):
                 for u in users:
                     if str(u.get("telegramId", "")) == str(telegram_id):
