@@ -35,25 +35,13 @@ class RemnawaveClient:
     async def get_user_by_telegram_id(self, telegram_id: int) -> dict | None:
         """Return user dict from Remnawave if telegram_id matches, else None."""
         log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
-        page = 1
-        while True:
-            log.info("fetching_page", page=page)
-            result = await self._get("/api/users", params={"page": page, "per_page": 100})
-            if result is None:
-                log.info("result_is_none", page=page)
-                break
-            users = result.get("response", {}).get("users", [])
-            log.info("page_result", page=page, users_count=len(users))
-            if not users:
-                break
-            for u in users:
-                tg_id = u.get("telegramId")
-                if tg_id == telegram_id:
-                    log.info("user_found", telegramId=tg_id)
-                    return u
-            page += 1
-        log.info("user_not_found", telegram_id=telegram_id)
-        return None
+        result = await self._get(f"/api/users/by-telegram-id/{telegram_id}")
+        if result is None:
+            log.info("user_not_found", telegram_id=telegram_id)
+            return None
+        user = result.get("response", {})
+        log.info("user_found", telegramId=user.get("telegramId"))
+        return user
 
     async def get_user_stats(self, uuid: str) -> dict | None:
         """Return traffic/expiry stats for a user by their Remnawave UUID."""
