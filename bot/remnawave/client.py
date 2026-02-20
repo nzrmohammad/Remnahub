@@ -33,15 +33,18 @@ class RemnawaveClient:
         """Return user dict from Remnawave if telegram_id matches, else None."""
         log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
         result = await self._get("/api/users")
-        log.info("remnawave_api_response", result=result)
+        log.info(
+            "remnawave_api_response",
+            result_keys=result.keys() if isinstance(result, dict) else None,
+        )
         if result is None:
             return None
-        # Remnawave returns {"response": [...]} - list directly in response
+        # Remnawave returns {"response": {"total": N, "users": [...]}}
         if isinstance(result, dict):
-            users = result.get("response", [])
+            users = result.get("response", {}).get("users", [])
             if isinstance(users, list):
                 for u in users:
-                    if str(u.get("telegramId", "")) == str(telegram_id):
+                    if u.get("telegramId") == telegram_id:
                         return u
         return None
 
