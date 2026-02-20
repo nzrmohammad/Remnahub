@@ -31,7 +31,9 @@ class RemnawaveClient:
 
     async def get_user_by_telegram_id(self, telegram_id: int) -> dict | None:
         """Return user dict from Remnawave if telegram_id matches, else None."""
-        result = await self._get("/api/users", params={"telegramId": str(telegram_id)})
+        log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
+        result = await self._get("/api/users")
+        log.info("remnawave_api_response", result=result)
         if result is None:
             return None
         # Remnawave returns {"response": [...]} - list directly in response
