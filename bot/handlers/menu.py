@@ -84,7 +84,6 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
         last_connection = online_at[:19].replace("T", " ") if online_at else "—"
 
         text = (
-            f"📊 <b>{'آمار فوری' if lang == 'fa' else 'Quick Stats'}</b>\n\n"
             f"👤 <b>{'نام' if lang == 'fa' else 'Name'}</b>: {resp.get('username', '—')} ({status_fa})\n"
             f"──────────────────\n"
             f"🗂️ <b>{'حجم کل' if lang == 'fa' else 'Total'}</b>: {total_gb} GB\n"
@@ -92,7 +91,6 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
             f"📥 <b>{'حجم باقیمانده' if lang == 'fa' else 'Remaining'}</b>: {remaining_gb} GB\n"
             f"⚡️ <b>{'مصرف امروز' if lang == 'fa' else 'Today'}</b>: 0 MB\n"
             f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
-            f"──────────────────\n"
             f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_display}\n"
             f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{user.remnawave_uuid}</code>"
         )
