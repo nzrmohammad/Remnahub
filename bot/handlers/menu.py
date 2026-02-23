@@ -14,6 +14,7 @@ from bot.keyboards.inline import (
     settings_kb,
     account_list_kb,
     account_detail_kb,
+    stats_navigation_kb,
 )
 from bot.config import settings as cfg
 from bot.remnawave.client import remnawave
@@ -44,6 +45,48 @@ async def cb_menu_back(call: CallbackQuery, session: AsyncSession) -> None:
 # ── Quick Stats ────────────────────────────────────────────────────────────────
 
 
+async def _build_stats_text(resp: dict, uuid: str, lang: str) -> str:
+    user_traffic = resp.get("userTraffic", {})
+
+    used_bytes = user_traffic.get("usedTrafficBytes", 0) or 0
+    total_bytes = resp.get("trafficLimitBytes", 0) or 0
+    remaining_bytes = max(0, total_bytes - used_bytes) if total_bytes > 0 else 0
+
+    used_gb = round(used_bytes / 1e9, 2)
+    total_gb = round(total_bytes / 1e9, 2) if total_bytes > 0 else "∞"
+    remaining_gb = round(remaining_bytes / 1e9, 2)
+
+    expire_at = resp.get("expireAt")
+    expire_display = "—"
+    if expire_at:
+        try:
+            days_left = days_until_persian(expire_at)
+            persian_expire = to_persian_date(expire_at[:10])
+            expire_display = f"{persian_expire} ({days_left} روز)"
+        except Exception:
+            expire_display = expire_at[:10]
+
+    status = resp.get("status", "—")
+    status_fa = {"ACTIVE": "✅ فعال", "DISABLED": "❌ غیرفعال", "EXPIRED": "⏰ منقضی"}.get(
+        status, status
+    )
+
+    online_at = user_traffic.get("onlineAt")
+    last_connection = to_persian_date(online_at, include_time=True) if online_at else "—"
+
+    return (
+        f"👤 <b>{'نام' if lang == 'fa' else 'Name'}</b>: {resp.get('username', '—')} ({status_fa})\n"
+        f"──────────────────\n"
+        f"🗂️ <b>{'حجم کل' if lang == 'fa' else 'Total'}</b>: {total_gb} GB\n"
+        f"🔥 <b>{'حجم مصرف شده' if lang == 'fa' else 'Used'}</b>: {used_gb} GB\n"
+        f"📥 <b>{'حجم باقیمانده' if lang == 'fa' else 'Remaining'}</b>: {remaining_gb} GB\n"
+        f"⚡️ <b>{'مصرف امروز' if lang == 'fa' else 'Today'}</b>: 0 MB\n"
+        f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
+        f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_display}\n"
+        f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{uuid}</code>"
+    )
+
+
 @router.callback_query(F.data == "menu:stats")
 async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
     user = await _get_user(session, call.from_user.id)
@@ -62,55 +105,51 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
-    first_user = all_users[0]
-    data = await remnawave.get_user_stats(first_user.get("uuid"))
+    data = await remnawave.get_user_stats(all_users[0].get("uuid"))
 
     if data:
         resp = data.get("response", data)
-        user_traffic = resp.get("userTraffic", {})
-
-        used_bytes = user_traffic.get("usedTrafficBytes", 0) or 0
-        total_bytes = resp.get("trafficLimitBytes", 0) or 0
-        remaining_bytes = max(0, total_bytes - used_bytes) if total_bytes > 0 else 0
-
-        used_gb = round(used_bytes / 1e9, 2)
-        total_gb = round(total_bytes / 1e9, 2) if total_bytes > 0 else "∞"
-        remaining_gb = round(remaining_bytes / 1e9, 2)
-
-        expire_at = resp.get("expireAt")
-        expire_display = "—"
-        if expire_at:
-            expire_date = expire_at[:10]
-            try:
-                days_left = days_until_persian(expire_at)
-                persian_expire = to_persian_date(expire_date)
-                expire_display = f"{persian_expire} ({days_left} روز)"
-            except Exception:
-                expire_display = expire_date
-
-        status = resp.get("status", "—")
-        status_fa = {"ACTIVE": "✅ فعال", "DISABLED": "❌ غیرفعال", "EXPIRED": "⏰ منقضی"}.get(
-            status, status
-        )
-
-        online_at = user_traffic.get("onlineAt")
-        last_connection = to_persian_date(online_at[:19], include_time=True) if online_at else "—"
-
-        text = (
-            f"👤 <b>{'نام' if lang == 'fa' else 'Name'}</b>: {resp.get('username', '—')} ({status_fa})\n"
-            f"──────────────────\n"
-            f"🗂️ <b>{'حجم کل' if lang == 'fa' else 'Total'}</b>: {total_gb} GB\n"
-            f"🔥 <b>{'حجم مصرف شده' if lang == 'fa' else 'Used'}</b>: {used_gb} GB\n"
-            f"📥 <b>{'حجم باقیمانده' if lang == 'fa' else 'Remaining'}</b>: {remaining_gb} GB\n"
-            f"⚡️ <b>{'مصرف امروز' if lang == 'fa' else 'Today'}</b>: 0 MB\n"
-            f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
-            f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_display}\n"
-            f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{first_user.get('uuid')}</code>"
-        )
+        text = await _build_stats_text(resp, all_users[0].get("uuid"), lang)
     else:
         text = t(lang, "no_data")
 
-    await call.message.edit_text(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
+    await call.message.edit_text(
+        text,
+        reply_markup=stats_navigation_kb(0, len(all_users), all_users[0].get("uuid")),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("stats:nav:"))
+async def cb_stats_nav(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    index = int(call.data.split(":")[-1])
+
+    all_users = await remnawave.get_all_users_by_telegram_id(call.from_user.id)
+
+    if not all_users or index < 0 or index >= len(all_users):
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    await call.message.edit_text(t(lang, "stats_loading"), reply_markup=back_to_menu_kb(lang))
+
+    current_user = all_users[index]
+    data = await remnawave.get_user_stats(current_user.get("uuid"))
+
+    if data:
+        resp = data.get("response", data)
+        text = await _build_stats_text(resp, current_user.get("uuid"), lang)
+    else:
+        text = t(lang, "no_data")
+
+    await call.message.edit_text(
+        text,
+        reply_markup=stats_navigation_kb(index, len(all_users), current_user.get("uuid")),
+        parse_mode="HTML",
+    )
 
 
 # ── Account Management ─────────────────────────────────────────────────────────

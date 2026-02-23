@@ -181,3 +181,20 @@ def admin_approve_reject_kb(request_id: str) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+def stats_navigation_kb(current_index: int, total: int, uuid: str) -> InlineKeyboardMarkup:
+    kb = []
+    nav_buttons = []
+    if current_index > 0:
+        nav_buttons.append(
+            InlineKeyboardButton(text="⬅️ قبلی", callback_data=f"stats:nav:{current_index - 1}")
+        )
+    if current_index < total - 1:
+        nav_buttons.append(
+            InlineKeyboardButton(text="بعدی ➡️", callback_data=f"stats:nav:{current_index + 1}")
+        )
+    if nav_buttons:
+        kb.append(nav_buttons)
+    kb.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="menu:back")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)

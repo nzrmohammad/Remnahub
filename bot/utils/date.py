@@ -2,30 +2,31 @@ import jdatetime
 from datetime import date as gregorian_date
 
 
-def to_persian_date(gregorian_datetime: str, include_time: bool = False) -> str:
+def to_persian_date(gregorian_datetime: str | None, include_time: bool = False) -> str:
+    if not gregorian_datetime:
+        return "—"
     try:
-        if not gregorian_datetime:
-            return "—"
-        if "T" in gregorian_datetime:
-            date_part, time_part = gregorian_datetime.split("T")
+        dt_str = gregorian_datetime
+        if "T" in dt_str:
+            date_part = dt_str.split("T")[0]
+            time_part = dt_str.split("T")[1].split(".")[0].split("+")[0]
             year, month, day = map(int, date_part.split("-"))
             persian = jdatetime.date.from_gregorian(year=year, month=month, day=day)
             if include_time and time_part:
-                time_str = time_part[:8]
-                return f"{persian.year}/{persian.month:02d}/{persian.day:02d} {time_str}"
+                return f"{persian.year}/{persian.month:02d}/{persian.day:02d} {time_part}"
             return f"{persian.year}/{persian.month:02d}/{persian.day:02d}"
         else:
-            year, month, day = map(int, gregorian_datetime.split("-"))
+            year, month, day = map(int, dt_str.split("-"))
             persian = jdatetime.date.from_gregorian(year=year, month=month, day=day)
             return f"{persian.year}/{persian.month:02d}/{persian.day:02d}"
-    except Exception as e:
-        return gregorian_datetime
+    except Exception:
+        return str(gregorian_datetime)
 
 
-def days_until_persian(gregorian_date_str: str) -> int:
+def days_until_persian(gregorian_date_str: str | None) -> int:
+    if not gregorian_date_str:
+        return 0
     try:
-        if not gregorian_date_str:
-            return 0
         date_part = gregorian_date_str[:10]
         year, month, day = map(int, date_part.split("-"))
         target = gregorian_date(year, month, day)

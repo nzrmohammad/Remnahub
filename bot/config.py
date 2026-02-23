@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     admin_ids: list[int] = []
     admin_group_id: int = 0
     admin_topic_id: int = 1
+    payment_receipts_topic_id: int = 1
 
     @field_validator("admin_ids", mode="before")
     @classmethod

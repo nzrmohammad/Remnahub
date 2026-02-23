@@ -202,6 +202,7 @@ async def handle_wallet_receipt(
         photo = message.photo[-1]
         await bot.send_photo(
             chat_id=settings.admin_group_id,
+            message_thread_id=settings.payment_receipts_topic_id,
             photo=photo.file_id,
             caption=admin_text,
             reply_markup=admin_approve_reject_kb(request_id),
