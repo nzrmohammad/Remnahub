@@ -25,3 +25,9 @@ class Support(StatesGroup):
 
 class Settings(StatesGroup):
     idle = State()
+
+
+class Wallet(StatesGroup):
+    idle = State()
+    waiting_for_amount = State()
+    waiting_for_receipt = State()

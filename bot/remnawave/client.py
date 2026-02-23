@@ -54,6 +54,21 @@ class RemnawaveClient:
             log.info("user_not_found", telegram_id=telegram_id)
         return user
 
+    async def get_all_users_by_telegram_id(self, telegram_id: int) -> list[dict]:
+        """Return all user dicts from Remnawave matching the telegram_id."""
+        log.info("remnawave_get_all_users_by_telegram_id", telegram_id=telegram_id)
+        result = await self._get(f"/api/users/by-telegram-id/{telegram_id}")
+        if result is None:
+            log.info("users_not_found", telegram_id=telegram_id)
+            return []
+        response_data = result.get("response")
+        if isinstance(response_data, list):
+            log.info("users_found", count=len(response_data))
+            return response_data
+        if isinstance(response_data, dict):
+            return [response_data]
+        return []
+
     async def get_user_stats(self, uuid: str) -> dict | None:
         """Return traffic/expiry stats for a user by their Remnawave UUID."""
         return await self._get(f"/api/users/{uuid}")

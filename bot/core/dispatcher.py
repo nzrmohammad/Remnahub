@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 
 from bot.config import settings
 from bot.core.middlewares.db import DbSessionMiddleware
-from bot.handlers import start, auth, menu
+from bot.handlers import start, auth, menu, wallet
 
 
 def create_dispatcher() -> tuple[Bot, Dispatcher]:
@@ -21,5 +21,6 @@ def create_dispatcher() -> tuple[Bot, Dispatcher]:
     dp.include_router(start.router)
     dp.include_router(auth.router)
     dp.include_router(menu.router)
+    dp.include_router(wallet.router)
 
     return bot, dp

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import field_validator 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     # Misc
     log_level: str = "INFO"
+    payment_card_number: str = "شماره حساب"
+    payment_card_holder: str = "نام"
 
 
 settings = Settings()  # type: ignore

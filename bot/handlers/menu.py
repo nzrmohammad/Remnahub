@@ -50,12 +50,20 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
     lang = user.lang if user else "en"
     await call.answer()
 
-    if not user or not user.remnawave_uuid:
+    if not user:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
     await call.message.edit_text(t(lang, "stats_loading"), reply_markup=back_to_menu_kb(lang))
-    data = await remnawave.get_user_stats(user.remnawave_uuid)
+
+    all_users = await remnawave.get_all_users_by_telegram_id(call.from_user.id)
+
+    if not all_users or not all_users[0].get("uuid"):
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    first_user = all_users[0]
+    data = await remnawave.get_user_stats(first_user.get("uuid"))
 
     if data:
         resp = data.get("response", data)
@@ -97,7 +105,7 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
             f"⚡️ <b>{'مصرف امروز' if lang == 'fa' else 'Today'}</b>: 0 MB\n"
             f"⏰ <b>{'آخرین اتصال' if lang == 'fa' else 'Last Connection'}</b>: {last_connection}\n"
             f"📅 <b>{'انقضا' if lang == 'fa' else 'Expiry'}</b>: {expire_display}\n"
-            f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{user.remnawave_uuid}</code>"
+            f"🔑 <b>{'شناسه کاربری' if lang == 'fa' else 'User ID'}</b>: <code>{first_user.get('uuid')}</code>"
         )
     else:
         text = t(lang, "no_data")
@@ -114,22 +122,30 @@ async def cb_account(call: CallbackQuery, session: AsyncSession) -> None:
     lang = user.lang if user else "en"
     await call.answer()
 
-    if not user or not user.remnawave_uuid:
+    if not user:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
-    data = await remnawave.get_user_stats(user.remnawave_uuid)
-    resp = data.get("response", data) if data else {}
+    await call.message.edit_text(t(lang, "stats_loading"), reply_markup=back_to_menu_kb(lang))
 
-    accounts = [
-        {
-            "username": resp.get("username", "—"),
-            "uuid": user.remnawave_uuid,
-            "status": resp.get("status", "UNKNOWN"),
-        }
-    ]
+    all_users = await remnawave.get_all_users_by_telegram_id(call.from_user.id)
 
-    text = f"👤 <b>{'مدیریت اکانت' if lang == 'fa' else 'Account Management'}</b>\n\n{'یک اکانت یافت شد' if lang == 'fa' else 'One account found'}:"
+    if not all_users:
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    accounts = []
+    for u in all_users:
+        accounts.append(
+            {
+                "username": u.get("username", "—"),
+                "uuid": u.get("uuid"),
+                "status": u.get("status", "UNKNOWN"),
+            }
+        )
+
+    count = len(accounts)
+    text = f"👤 <b>{'مدیریت اکانت' if lang == 'fa' else 'Account Management'}</b>\n\n{count} {'اکانت یافت شد' if count == 1 else 'اکانت یافت شدند' if lang == 'fa' else 'accounts found'}:"
     await call.message.edit_text(
         text, reply_markup=account_list_kb(accounts, lang), parse_mode="HTML"
     )
@@ -141,22 +157,30 @@ async def cb_account_list(call: CallbackQuery, session: AsyncSession) -> None:
     lang = user.lang if user else "en"
     await call.answer()
 
-    if not user or not user.remnawave_uuid:
+    if not user:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
-    data = await remnawave.get_user_stats(user.remnawave_uuid)
-    resp = data.get("response", data) if data else {}
+    await call.message.edit_text(t(lang, "stats_loading"), reply_markup=back_to_menu_kb(lang))
 
-    accounts = [
-        {
-            "username": resp.get("username", "—"),
-            "uuid": user.remnawave_uuid,
-            "status": resp.get("status", "UNKNOWN"),
-        }
-    ]
+    all_users = await remnawave.get_all_users_by_telegram_id(call.from_user.id)
 
-    text = f"👤 <b>{'مدیریت اکانت' if lang == 'fa' else 'Account Management'}</b>\n\n{'یک اکانت یافت شد' if lang == 'fa' else 'One account found'}:"
+    if not all_users:
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    accounts = []
+    for u in all_users:
+        accounts.append(
+            {
+                "username": u.get("username", "—"),
+                "uuid": u.get("uuid"),
+                "status": u.get("status", "UNKNOWN"),
+            }
+        )
+
+    count = len(accounts)
+    text = f"👤 <b>{'مدیریت اکانت' if lang == 'fa' else 'Account Management'}</b>\n\n{count} {'اکانت یافت شد' if count == 1 else 'اکانت یافت شدند' if lang == 'fa' else 'accounts found'}:"
     await call.message.edit_text(
         text, reply_markup=account_list_kb(accounts, lang), parse_mode="HTML"
     )
@@ -247,18 +271,6 @@ async def cb_account_detail(call: CallbackQuery, session: AsyncSession) -> None:
     await call.message.edit_text(
         text, reply_markup=account_detail_kb(uuid, lang), parse_mode="HTML"
     )
-
-
-# ── Wallet ─────────────────────────────────────────────────────────────────────
-
-
-@router.callback_query(F.data == "menu:wallet")
-async def cb_wallet(call: CallbackQuery, session: AsyncSession) -> None:
-    user = await _get_user(session, call.from_user.id)
-    lang = user.lang if user else "en"
-    await call.answer()
-    text = f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>\n\n🔧 {'به زودی...' if lang == 'fa' else 'Coming soon...'}"
-    await call.message.edit_text(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
 
 
 # ── Services ───────────────────────────────────────────────────────────────────

@@ -130,3 +130,54 @@ def account_detail_kb(uuid: str, lang: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="account:list")],
         ]
     )
+
+
+def wallet_main_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💰 موجودی شما: 0 تومان", callback_data="wallet:balance")],
+            [
+                InlineKeyboardButton(text="➕ شارژ حساب", callback_data="wallet:charge"),
+                InlineKeyboardButton(text="📜 تاریخچه تراکنش‌ها", callback_data="wallet:history"),
+            ],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
+        ]
+    )
+
+
+def wallet_cancel_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="❌ لغو عملیات", callback_data="wallet:cancel")]
+        ]
+    )
+
+
+def wallet_payment_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="❌ لغو عملیات", callback_data="wallet:cancel")]
+        ]
+    )
+
+
+def wallet_success_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💼 بازگشت به کیف پول", callback_data="menu:wallet"),
+                InlineKeyboardButton(text="📡 مشاهده سرویس‌ها", callback_data="menu:services"),
+            ]
+        ]
+    )
+
+
+def admin_approve_reject_kb(request_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ تایید", callback_data=f"wallet:approve:{request_id}"),
+                InlineKeyboardButton(text="❌ رد", callback_data=f"wallet:reject:{request_id}"),
+            ]
+        ]
+    )
