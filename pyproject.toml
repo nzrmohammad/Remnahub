@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     "python-dotenv>=1.0.0",
     "structlog>=25.1.0",
+    "jdatetime>=5.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

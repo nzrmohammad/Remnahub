@@ -17,9 +17,7 @@ router = Router(name="start")
 async def cmd_start(message: Message, session: AsyncSession) -> None:
     """Handle /start — upsert user, show bilingual language selection."""
     # Upsert user in DB
-    result = await session.execute(
-        select(User).where(User.telegram_id == message.from_user.id)
-    )
+    result = await session.execute(select(User).where(User.telegram_id == message.from_user.id))
     user = result.scalar_one_or_none()
     if user is None:
         user = User(
@@ -36,9 +34,6 @@ async def cmd_start(message: Message, session: AsyncSession) -> None:
         user.username = message.from_user.username
         user.full_name = message.from_user.full_name
         await session.commit()
-
-    # Delete the /start message to keep chat clean
-    await message.delete()
 
     # Send language selection (bilingual)
     await message.answer(
