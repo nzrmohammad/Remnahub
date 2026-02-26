@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bot.db.base import Base
@@ -16,6 +16,7 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     lang: Mapped[str] = mapped_column(String(4), default="en", nullable=False)
+    balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     remnawave_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

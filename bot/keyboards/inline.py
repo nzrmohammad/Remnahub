@@ -44,31 +44,31 @@ def main_menu_kb(lang: str, is_admin: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=t(lang, "btn_main_stats"), callback_data="menu:stats"),
                 InlineKeyboardButton(
                     text=t(lang, "btn_main_account"), callback_data="menu:account"
                 ),
+                InlineKeyboardButton(text=t(lang, "btn_main_stats"), callback_data="menu:stats"),
             ],
             [
-                InlineKeyboardButton(text=t(lang, "btn_main_wallet"), callback_data="menu:wallet"),
                 InlineKeyboardButton(
                     text=t(lang, "btn_main_services"), callback_data="menu:services"
                 ),
+                InlineKeyboardButton(text=t(lang, "btn_main_wallet"), callback_data="menu:wallet"),
             ],
             [
-                InlineKeyboardButton(
-                    text=t(lang, "btn_main_tutorial"), callback_data="menu:tutorial"
-                ),
                 InlineKeyboardButton(
                     text=t(lang, "btn_main_settings"), callback_data="menu:settings"
                 ),
+                InlineKeyboardButton(
+                    text=t(lang, "btn_main_tutorial"), callback_data="menu:tutorial"
+                ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t(lang, "btn_main_support"), callback_data="menu:support"
+                    text=t(lang, "btn_main_profile"), callback_data="menu:profile"
                 ),
                 InlineKeyboardButton(
-                    text=t(lang, "btn_main_profile"), callback_data="menu:profile"
+                    text=t(lang, "btn_main_support"), callback_data="menu:support"
                 ),
             ],
             [
@@ -132,13 +132,14 @@ def account_detail_kb(uuid: str, lang: str) -> InlineKeyboardMarkup:
     )
 
 
-def wallet_main_kb(lang: str) -> InlineKeyboardMarkup:
+def wallet_main_kb(lang: str, balance: int = 0) -> InlineKeyboardMarkup:
+    balance_text = f"{balance:,}"
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="💰 موجودی شما: 0 تومان", callback_data="wallet:balance")],
+            [InlineKeyboardButton(text=f"💰 {balance_text} تومان", callback_data="wallet:balance")],
             [
-                InlineKeyboardButton(text="➕ شارژ حساب", callback_data="wallet:charge"),
                 InlineKeyboardButton(text="📜 تاریخچه تراکنش‌ها", callback_data="wallet:history"),
+                InlineKeyboardButton(text="➕ شارژ حساب", callback_data="wallet:charge"),
             ],
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
         ]
@@ -197,4 +198,84 @@ def stats_navigation_kb(current_index: int, total: int, uuid: str) -> InlineKeyb
     if nav_buttons:
         kb.append(nav_buttons)
     kb.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="menu:back")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def admin_main_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👥 مدیریت کاربران", callback_data="admin:users"),
+                InlineKeyboardButton(text="📊 گزارش‌ها و آمار", callback_data="admin:stats"),
+            ],
+            [
+                InlineKeyboardButton(text="💾 پشتیبان‌گیری", callback_data="admin:backup"),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="menu:back"),
+            ],
+        ]
+    )
+
+
+def admin_users_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="➕ افزودن کاربر جدید", callback_data="admin:user:add"),
+                InlineKeyboardButton(text="📋 لیست کاربران", callback_data="admin:user:list"),
+            ],
+            [
+                InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:user:search"),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:panel"),
+            ],
+        ]
+    )
+
+
+def admin_stats_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🟢 آنلاین 24 ساعت اخیر", callback_data="admin:stats:active_24h"
+                ),
+                InlineKeyboardButton(
+                    text="🟡 غیرفعال 1 تا 7 روز", callback_data="admin:stats:inactive_7d"
+                ),
+            ],
+            [
+                InlineKeyboardButton(text="🔴 هرگز متصل نشده", callback_data="admin:stats:never"),
+                InlineKeyboardButton(
+                    text="👥 لیست کاربران ربات", callback_data="admin:stats:all_users"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💰 موجودی کاربران", callback_data="admin:stats:balances"
+                ),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:panel"),
+            ],
+        ]
+    )
+
+
+def admin_user_list_kb(page: int, total_pages: int, lang: str = "fa") -> InlineKeyboardMarkup:
+    kb = []
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(
+            InlineKeyboardButton(text="⬅️ قبلی", callback_data=f"admin:user:list:{page - 1}")
+        )
+    if page < total_pages - 1:
+        nav_buttons.append(
+            InlineKeyboardButton(text="بعدی ➡️", callback_data=f"admin:user:list:{page + 1}")
+        )
+    if nav_buttons:
+        kb.append(nav_buttons)
+    kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:users")])
     return InlineKeyboardMarkup(inline_keyboard=kb)

@@ -34,8 +34,16 @@ async def _get_user(session: AsyncSession, telegram_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def _get_user_balance(telegram_id: int) -> int:
-    return 0
+async def _get_user_balance(session: AsyncSession, telegram_id: int) -> int:
+    user = await _get_user(session, telegram_id)
+    return user.balance if user else 0
+
+
+async def _update_user_balance(session: AsyncSession, telegram_id: int, amount: int) -> None:
+    user = await _get_user(session, telegram_id)
+    if user:
+        user.balance += amount
+        await session.commit()
 
 
 @router.callback_query(F.data == "menu:wallet")
@@ -45,16 +53,12 @@ async def cb_wallet(call: CallbackQuery, session: AsyncSession, state: FSMContex
     await call.answer()
     await state.set_state(Wallet.idle)
 
-    balance = await _get_user_balance(call.from_user.id)
-    balance_text = f"{balance:,}"
+    balance = await _get_user_balance(session, call.from_user.id)
 
-    text = (
-        f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>\n\n"
-        f"💵 {'موجودی شما' if lang == 'fa' else 'Your Balance'}: <b>{balance_text} تومان</b>"
-    )
+    text = f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>"
     await call.message.edit_text(
         text,
-        reply_markup=wallet_main_kb(lang),
+        reply_markup=wallet_main_kb(lang, balance),
         parse_mode="HTML",
     )
 
@@ -65,16 +69,12 @@ async def cb_wallet_balance(call: CallbackQuery, session: AsyncSession, state: F
     lang = user.lang if user else "en"
     await call.answer()
 
-    balance = await _get_user_balance(call.from_user.id)
-    balance_text = f"{balance:,}"
+    balance = await _get_user_balance(session, call.from_user.id)
 
-    text = (
-        f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>\n\n"
-        f"💵 {'موجودی شما' if lang == 'fa' else 'Your Balance'}: <b>{balance_text} تومان</b>"
-    )
+    text = f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>"
     await call.message.edit_text(
         text,
-        reply_markup=wallet_main_kb(lang),
+        reply_markup=wallet_main_kb(lang, balance),
         parse_mode="HTML",
     )
 
@@ -110,6 +110,7 @@ async def cb_wallet_charge(call: CallbackQuery, session: AsyncSession, state: FS
         reply_markup=wallet_cancel_kb(lang),
         parse_mode="HTML",
     )
+    await state.update_data(wallet_message_id=call.message.message_id)
 
 
 @router.message(Wallet.waiting_for_amount)
@@ -132,10 +133,11 @@ async def handle_wallet_amount(
         )
         return
 
-    await message.delete()
-
     request_id = str(uuid_lib.uuid4())[:8]
     amount_text = f"{amount:,}"
+
+    data = await state.get_data()
+    message_id = data.get("wallet_message_id")
 
     pending_requests[request_id] = {
         "user_id": message.from_user.id,
@@ -143,6 +145,7 @@ async def handle_wallet_amount(
         "full_name": message.from_user.full_name,
         "amount": amount,
         "lang": lang,
+        "message_id": message_id,
     }
 
     await state.update_data(wallet_request_id=request_id, wallet_amount=amount)
@@ -156,11 +159,20 @@ async def handle_wallet_amount(
         f"💳 <code>{settings.payment_card_number}</code>\n\n"
         f"⚠️ {'توجه: پس از ارسال رسید، باید منتظر تایید ادمین بمانید.' if lang == 'fa' else 'Note: After sending the receipt, you must wait for admin approval.'}"
     )
-    await message.answer(
-        text,
-        reply_markup=wallet_payment_kb(lang),
-        parse_mode="HTML",
-    )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=wallet_payment_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(
+            text,
+            reply_markup=wallet_payment_kb(lang),
+            parse_mode="HTML",
+        )
 
 
 @router.message(Wallet.waiting_for_receipt, F.photo)
@@ -175,10 +187,9 @@ async def handle_wallet_receipt(
     data = await state.get_data()
     request_id = data.get("wallet_request_id", "unknown")
     amount = data.get("wallet_amount", 0)
+    message_id = data.get("wallet_message_id")
 
-    await message.delete()
-
-    balance = await _get_user_balance(message.from_user.id)
+    balance = await _get_user_balance(session, message.from_user.id)
     balance_text = f"{balance:,}"
     amount_text = f"{amount:,}"
 
@@ -218,29 +229,53 @@ async def handle_wallet_receipt(
         )
         return
 
+    try:
+        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    except Exception as e:
+        log.error("Failed to delete user receipt message", error=str(e))
+
     await state.clear()
     await state.set_state(Wallet.idle)
 
-    await message.answer(
-        f"✅ {'رسید شما دریافت شد. پس از تایید توسط ادمین، حساب شما شارژ خواهد شد.' if lang == 'fa' else '✅ Your receipt has been received. After admin approval, your account will be charged.'}",
-        reply_markup=back_to_menu_kb(lang),
-        parse_mode="HTML",
-    )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=f"✅ {'رسید شما دریافت شد. پس از تایید توسط ادمین، حساب شما شارژ خواهد شد.' if lang == 'fa' else '✅ Your receipt has been received. After admin approval, your account will be charged.'}",
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(
+            f"✅ {'رسید شما دریافت شد. پس از تایید توسط ادمین، حساب شما شارژ خواهد شد.' if lang == 'fa' else '✅ Your receipt has been received. After admin approval, your account will be charged.'}",
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
 
 
 @router.message(Wallet.waiting_for_receipt)
 async def handle_wallet_receipt_invalid(
-    message: Message, session: AsyncSession, state: FSMContext
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
 ) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
+    data = await state.get_data()
+    message_id = data.get("wallet_message_id")
 
-    await message.delete()
-    await message.answer(
-        f"⚠️ {'لطفاً فقط تصویر رسید پرداخت را ارسال کنید.' if lang == 'fa' else 'Please only send the payment receipt image.'}",
-        reply_markup=wallet_payment_kb(lang),
-        parse_mode="HTML",
-    )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=f"⚠️ {'لطفاً فقط تصویر رسید پرداخت را ارسال کنید.' if lang == 'fa' else 'Please only send the payment receipt image.'}",
+            reply_markup=wallet_payment_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(
+            f"⚠️ {'لطفاً فقط تصویر رسید پرداخت را ارسال کنید.' if lang == 'fa' else 'Please only send the payment receipt image.'}",
+            reply_markup=wallet_payment_kb(lang),
+            parse_mode="HTML",
+        )
 
 
 @router.callback_query(F.data == "wallet:cancel")
@@ -251,16 +286,12 @@ async def cb_wallet_cancel(call: CallbackQuery, session: AsyncSession, state: FS
     await state.clear()
     await state.set_state(Wallet.idle)
 
-    balance = await _get_user_balance(call.from_user.id)
-    balance_text = f"{balance:,}"
+    balance = await _get_user_balance(session, call.from_user.id)
 
-    text = (
-        f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>\n\n"
-        f"💵 {'موجودی شما' if lang == 'fa' else 'Your Balance'}: <b>{balance_text} تومان</b>"
-    )
+    text = f"💰 <b>{'کیف پول' if lang == 'fa' else 'Wallet'}</b>"
     await call.message.edit_text(
         text,
-        reply_markup=wallet_main_kb(lang),
+        reply_markup=wallet_main_kb(lang, balance),
         parse_mode="HTML",
     )
 
@@ -285,8 +316,17 @@ async def cb_wallet_approve(call: CallbackQuery, session: AsyncSession, bot: Bot
     user_id = request_data["user_id"]
     amount = request_data["amount"]
     lang = request_data["lang"]
+    user_message_id = request_data.get("message_id")
+
+    await _update_user_balance(session, user_id, amount)
 
     amount_text = f"{amount:,}"
+
+    try:
+        if user_message_id:
+            await bot.delete_message(chat_id=user_id, message_id=user_message_id)
+    except Exception as e:
+        log.error("Failed to delete user message", error=str(e))
 
     try:
         await bot.send_message(
@@ -301,6 +341,7 @@ async def cb_wallet_approve(call: CallbackQuery, session: AsyncSession, bot: Bot
 
     await call.message.edit_text(
         call.message.text + "\n\n✅ <b>تایید شد</b>",
+        reply_markup=None,
         parse_mode="HTML",
     )
 
@@ -324,12 +365,18 @@ async def cb_wallet_reject(call: CallbackQuery, session: AsyncSession, bot: Bot)
     request_data = pending_requests.pop(request_id)
     user_id = request_data["user_id"]
     lang = request_data["lang"]
+    user_message_id = request_data.get("message_id")
+
+    try:
+        if user_message_id:
+            await bot.delete_message(chat_id=user_id, message_id=user_message_id)
+    except Exception as e:
+        log.error("Failed to delete user message", error=str(e))
 
     try:
         await bot.send_message(
             chat_id=user_id,
             text=f"❌ {'درخواست شارژ حساب شما توسط ادمین رد شد. لطفاً با پشتیبانی تماس بگیرید.' if lang == 'fa' else '❌ Your charge request was rejected by admin. Please contact support.'}",
-            reply_markup=back_to_menu_kb(lang),
             parse_mode="HTML",
         )
     except Exception as e:
@@ -337,5 +384,6 @@ async def cb_wallet_reject(call: CallbackQuery, session: AsyncSession, bot: Bot)
 
     await call.message.edit_text(
         call.message.text + "\n\n❌ <b>رد شد</b>",
+        reply_markup=None,
         parse_mode="HTML",
     )

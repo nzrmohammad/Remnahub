@@ -1,15 +1,29 @@
 import jdatetime
-from datetime import date as gregorian_date
+from datetime import date as gregorian_date, datetime, timezone
+from datetime import datetime as dt
 
 
 def to_persian_date(gregorian_datetime: str | None, include_time: bool = False) -> str:
     if not gregorian_datetime:
         return "—"
     try:
-        dt_str = gregorian_datetime
-        if "T" in dt_str:
-            date_part = dt_str.split("T")[0]
-            time_part = dt_str.split("T")[1].split(".")[0].split("+")[0]
+        dt_str = str(gregorian_datetime).strip().replace("Z", "+00:00")
+
+        if "+" in dt_str and "T" in dt_str:
+            parts = dt_str.split("+")
+            date_time_part = parts[0]
+            date_part, time_part = date_time_part.split("T")
+            time_part = time_part.split(".")[0]
+
+            year, month, day = map(int, date_part.split("-"))
+            persian = jdatetime.date.from_gregorian(year=year, month=month, day=day)
+
+            if include_time and time_part:
+                return f"{persian.year}/{persian.month:02d}/{persian.day:02d} {time_part}"
+            return f"{persian.year}/{persian.month:02d}/{persian.day:02d}"
+        elif "T" in dt_str:
+            date_part, time_part = dt_str.split("T")
+            time_part = time_part.split(".")[0]
             year, month, day = map(int, date_part.split("-"))
             persian = jdatetime.date.from_gregorian(year=year, month=month, day=day)
             if include_time and time_part:
@@ -19,7 +33,7 @@ def to_persian_date(gregorian_datetime: str | None, include_time: bool = False) 
             year, month, day = map(int, dt_str.split("-"))
             persian = jdatetime.date.from_gregorian(year=year, month=month, day=day)
             return f"{persian.year}/{persian.month:02d}/{persian.day:02d}"
-    except Exception:
+    except Exception as e:
         return str(gregorian_datetime)
 
 

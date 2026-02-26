@@ -117,14 +117,7 @@ This command will download PostgreSQL and Redis, build the bot image, and start 
 docker compose up --build -d
 ```
 
-### 5. Apply Database Migrations (First Run Only)
-Because the database is empty on the first run, you need to tell Alembic to create the tables inside the running bot container:
-```bash
-docker compose exec bot uv run alembic revision --autogenerate -m "initial"
-docker compose exec bot uv run alembic upgrade head
-```
-
-### 6. Managing the Bot
+### 5. Managing the Bot
 - **View logs:** `docker compose logs -f bot`
 - **Stop bot:** `docker compose down`
 - **Restart after code changes:** `docker compose up --build -d`

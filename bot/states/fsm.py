@@ -31,3 +31,9 @@ class Wallet(StatesGroup):
     idle = State()
     waiting_for_amount = State()
     waiting_for_receipt = State()
+
+
+class Admin(StatesGroup):
+    idle = State()
+    waiting_for_telegram_id = State()
+    waiting_for_search = State()
