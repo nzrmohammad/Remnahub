@@ -68,20 +68,6 @@ remnabot/
 └── .env.example
 ```
 
----
-
-## Alembic (database migrations)
-
-```powershell
-# Generate first migration after model changes
-uv run alembic revision --autogenerate -m "initial"
-
-# Apply migrations
-uv run alembic upgrade head
-```
-
----
-
 ## Deploy on Ubuntu Server (VPS)
 
 If you are deploying on a fresh Ubuntu Linux server, follow these steps:
