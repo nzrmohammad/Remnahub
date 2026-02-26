@@ -261,8 +261,8 @@ def admin_main_kb(lang: str = "fa") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="👥 مدیریت کاربران", callback_data="admin:users"),
                 InlineKeyboardButton(text="📊 گزارش‌ها و آمار", callback_data="admin:stats"),
+                InlineKeyboardButton(text="👥 مدیریت کاربران", callback_data="admin:users"),
             ],
             [
                 InlineKeyboardButton(text="💾 پشتیبان‌گیری", callback_data="admin:backup"),

@@ -71,6 +71,78 @@ docker compose up --build -d
 
 ---
 
+## Environment Variables
+
+### Telegram
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `BOT_TOKEN` | Telegram Bot API token | Yes |
+| `ADMIN_IDS` | Admin Telegram IDs (comma-separated) | Yes |
+| `ADMIN_GROUP_ID` | Group ID for admin notifications | Yes |
+| `ADMIN_TOPIC_ID` | Topic ID for new service requests | Yes |
+| `PAYMENT_RECEIPTS_TOPIC_ID` | Topic ID for payment receipts | Yes |
+
+### Remnawave Panel
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `REMNAWAVE_API_URL` | Remnawave panel URL | Yes |
+| `REMNAWAVE_API_TOKEN` | Remnawave API token | Yes |
+
+### Database
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `POSTGRES_PASSWORD` | PostgreSQL password | Yes |
+
+### Redis
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `REDIS_URL` | Redis connection URL (default: `redis://redis:6379/0`) | No |
+
+### Tutorial Links
+Connection guide links for each OS and app:
+| Variable | Description |
+|----------|-------------|
+| `TUTORIAL_ANDROID_HAPP` | Android - HAPP app guide |
+| `TUTORIAL_ANDROID_HIDDIFY` | Android - Hiddify guide |
+| `TUTORIAL_ANDROID_V2RAYNG` | Android - V2rayNG guide |
+| `TUTORIAL_IOS_HAPP` | iOS - HAPP app guide |
+| `TUTORIAL_IOS_HIDDIFY` | iOS - Hiddify guide |
+| `TUTORIAL_IOS_V2RAYNG` | iOS - V2rayNG guide |
+| `TUTORIAL_WINDOWS_HAPP` | Windows - HAPP app guide |
+| `TUTORIAL_WINDOWS_HIDDIFY` | Windows - Hiddify guide |
+| `TUTORIAL_WINDOWS_V2RAYNG` | Windows - V2rayNG guide |
+
+### Other Settings
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `PAYMENT_CARD_NUMBER` | Payment card number displayed to users | - |
+| `PAYMENT_CARD_HOLDER` | Card holder name | - |
+
+
+---
+
+## New Features
+
+### Connection Guide (Tutorial)
+Users can select their operating system and preferred app to receive tailored connection instructions:
+- **OS Selection:** Android, iOS, Windows
+- **App Selection:** HAPP (recommended), Hiddify, V2rayNG
+- Links are configured via environment variables
+
+### Warning Settings
+Users can enable/disable notifications for:
+- **Expiry Warning:** Notifies when subscription is about to expire
+- **Volume Warning:** Notifies when data limit is running low
+
+These settings are stored in the `users` table:
+- `expiry_warning_enabled` (boolean, default: true)
+- `volume_warning_enabled` (boolean, default: true)
+
+
+---
+
 ## Project Structure
 
 ```
