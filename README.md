@@ -28,46 +28,6 @@ docker compose up -d postgres redis
 uv run python -m bot.main
 ```
 
----
-
-## Project Structure
-
-```
-remnabot/
-├── bot/
-│   ├── main.py              # Entry point
-│   ├── config.py            # Settings (pydantic-settings)
-│   ├── core/
-│   │   ├── dispatcher.py    # Bot + Dispatcher factory
-│   │   ├── i18n.py          # Translation helper t(lang, key)
-│   │   └── middlewares/
-│   │       └── db.py        # DB session per update
-│   ├── db/
-│   │   ├── base.py          # SQLAlchemy Base
-│   │   ├── engine.py        # Async engine + session factory
-│   │   └── models/
-│   │       └── user.py      # User model
-│   ├── remnawave/
-│   │   └── client.py        # Async Remnawave API client
-│   ├── handlers/
-│   │   ├── start.py         # /start command
-│   │   ├── auth.py          # Language select, login, new service
-│   │   └── menu.py          # All main menu sections
-│   ├── keyboards/
-│   │   └── inline.py        # All inline keyboards
-│   ├── states/
-│   │   └── fsm.py           # FSM state groups
-│   └── locales/
-│       ├── en.json          # English strings
-│       └── fa.json          # Persian strings
-├── migrations/              # Alembic migrations
-├── docker-compose.yml
-├── Dockerfile
-├── alembic.ini
-├── pyproject.toml
-└── .env.example
-```
-
 ## Deploy on Ubuntu Server (VPS)
 
 If you are deploying on a fresh Ubuntu Linux server, follow these steps:
@@ -107,3 +67,44 @@ docker compose up --build -d
 - **View logs:** `docker compose logs -f bot`
 - **Stop bot:** `docker compose down`
 - **Restart after code changes:** `docker compose up --build -d`
+
+
+---
+
+## Project Structure
+
+```
+remnabot/
+├── bot/
+│   ├── main.py              # Entry point
+│   ├── config.py            # Settings (pydantic-settings)
+│   ├── core/
+│   │   ├── dispatcher.py    # Bot + Dispatcher factory
+│   │   ├── i18n.py          # Translation helper t(lang, key)
+│   │   └── middlewares/
+│   │       └── db.py        # DB session per update
+│   ├── db/
+│   │   ├── base.py          # SQLAlchemy Base
+│   │   ├── engine.py        # Async engine + session factory
+│   │   └── models/
+│   │       └── user.py      # User model
+│   ├── remnawave/
+│   │   └── client.py        # Async Remnawave API client
+│   ├── handlers/
+│   │   ├── start.py         # /start command
+│   │   ├── auth.py          # Language select, login, new service
+│   │   └── menu.py          # All main menu sections
+│   ├── keyboards/
+│   │   └── inline.py        # All inline keyboards
+│   ├── states/
+│   │   └── fsm.py           # FSM state groups
+│   └── locales/
+│       ├── en.json          # English strings
+│       └── fa.json          # Persian strings
+├── migrations/              # Alembic migrations
+├── docker-compose.yml
+├── Dockerfile
+├── alembic.ini
+├── pyproject.toml
+└── .env.example
+```
