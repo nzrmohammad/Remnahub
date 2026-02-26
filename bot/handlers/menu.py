@@ -31,6 +31,7 @@ from bot.keyboards.inline import (
     package_list_kb,
     package_edit_kb,
     user_packages_kb,
+    user_packages_category_kb,
 )
 from bot.config import settings as cfg
 from bot.remnawave.client import remnawave
@@ -346,18 +347,64 @@ async def cb_services(call: CallbackQuery, session: AsyncSession) -> None:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
+    await call.message.edit_text(
+        f"🚀 <b>{'پلن‌های فروش سرویس' if lang == 'fa' else 'Service Plans'}</b>\n\n"
+        f"{'💡 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:' if lang == 'fa' else '💡 Please select a category:'}",
+        reply_markup=user_packages_category_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("packages:category:"))
+async def cb_packages_category(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if not user:
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    category = call.data.split(":")[-1]
+
     from bot.db.models import Package as PackageModel
 
     result = await session.execute(
         select(PackageModel)
         .where(PackageModel.is_active == True)
-        .order_by(PackageModel.sort_order, PackageModel.id)
+        .where(PackageModel.category == category)
+        .order_by(PackageModel.sort_order, PackageModel.price)
     )
     packages = result.scalars().all()
 
-    text, keyboard = user_packages_kb(packages, lang, user.balance)
+    if not packages:
+        await call.message.edit_text(
+            f"📦 <b>{'در این دسته‌بندی بسته‌ای موجود نیست.' if lang == 'fa' else 'No packages available in this category.'}</b>",
+            reply_markup=user_packages_category_kb(lang),
+            parse_mode="HTML",
+        )
+        return
 
+    text, keyboard = user_packages_kb(packages, lang, user.balance, category)
     await call.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "packages:back")
+async def cb_packages_back(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if not user:
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    await call.message.edit_text(
+        f"🚀 <b>{'پلن‌های فروش سرویس' if lang == 'fa' else 'Service Plans'}</b>\n\n"
+        f"{'💡 لطفاً دسته‌بندی مورد نظر را انتخاب کنید:' if lang == 'fa' else '💡 Please select a category:'}",
+        reply_markup=user_packages_category_kb(lang),
+        parse_mode="HTML",
+    )
 
 
 # ── Tutorial ───────────────────────────────────────────────────────────────────
@@ -617,6 +664,7 @@ async def cb_admin_package_add(
         return
 
     await state.set_state(Package.waiting_for_name)
+    await state.update_data(package_message_id=call.message.message_id)
     await call.message.edit_text(
         f"➕ <b>{'افزودن بسته جدید' if lang == 'fa' else 'Add New Package'}</b>\n\n"
         f"{'لطفاً نام بسته را وارد کنید:' if lang == 'fa' else 'Please enter the package name:'}",
@@ -626,30 +674,49 @@ async def cb_admin_package_add(
 
 
 @router.message(Package.waiting_for_name)
-async def handle_package_name(message: Message, session: AsyncSession, state: FSMContext) -> None:
+async def handle_package_name(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
+) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
 
     if message.from_user.id not in cfg.admin_ids:
         return
+
+    data = await state.get_data()
+    message_id = data.get("package_message_id")
 
     await state.update_data(name=message.text.strip())
     await state.set_state(Package.waiting_for_volume)
-    await message.edit_text(
+
+    text = (
         f"📦 <b>{'حجم بسته' if lang == 'fa' else 'Package Volume'}</b>\n\n"
-        f"{'لطفاً حجم بسته را به گیگابایت وارد کنید:' if lang == 'fa' else 'Please enter the package volume in GB:'}",
-        reply_markup=back_to_menu_kb(lang),
-        parse_mode="HTML",
+        f"{'لطفاً حجم بسته را به گیگابایت وارد کنید:' if lang == 'fa' else 'Please enter the package volume in GB:'}"
     )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
 
 
 @router.message(Package.waiting_for_volume)
-async def handle_package_volume(message: Message, session: AsyncSession, state: FSMContext) -> None:
+async def handle_package_volume(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
+) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
 
     if message.from_user.id not in cfg.admin_ids:
         return
+
+    data = await state.get_data()
+    message_id = data.get("package_message_id")
 
     try:
         volume = int(message.text.strip())
@@ -663,21 +730,35 @@ async def handle_package_volume(message: Message, session: AsyncSession, state: 
 
     await state.update_data(volume_gb=volume)
     await state.set_state(Package.waiting_for_days)
-    await message.edit_text(
+
+    text = (
         f"📅 <b>{'مدت بسته' if lang == 'fa' else 'Package Duration'}</b>\n\n"
-        f"{'لطفاً تعداد روز را وارد کنید:' if lang == 'fa' else 'Please enter the number of days:'}",
-        reply_markup=back_to_menu_kb(lang),
-        parse_mode="HTML",
+        f"{'لطفاً تعداد روز را وارد کنید:' if lang == 'fa' else 'Please enter the number of days:'}"
     )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
 
 
 @router.message(Package.waiting_for_days)
-async def handle_package_days(message: Message, session: AsyncSession, state: FSMContext) -> None:
+async def handle_package_days(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
+) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
 
     if message.from_user.id not in cfg.admin_ids:
         return
+
+    data = await state.get_data()
+    message_id = data.get("package_message_id")
 
     try:
         days = int(message.text.strip())
@@ -691,21 +772,35 @@ async def handle_package_days(message: Message, session: AsyncSession, state: FS
 
     await state.update_data(days=days)
     await state.set_state(Package.waiting_for_price)
-    await message.edit_text(
+
+    text = (
         f"💰 <b>{'قیمت بسته' if lang == 'fa' else 'Package Price'}</b>\n\n"
-        f"{'لطفاً قیمت را به تومان وارد کنید:' if lang == 'fa' else 'Please enter the price in Toman:'}",
-        reply_markup=back_to_menu_kb(lang),
-        parse_mode="HTML",
+        f"{'لطفاً قیمت را به تومان وارد کنید:' if lang == 'fa' else 'Please enter the price in Toman:'}"
     )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
 
 
 @router.message(Package.waiting_for_price)
-async def handle_package_price(message: Message, session: AsyncSession, state: FSMContext) -> None:
+async def handle_package_price(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
+) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
 
     if message.from_user.id not in cfg.admin_ids:
         return
+
+    data = await state.get_data()
+    message_id = data.get("package_message_id")
 
     try:
         price = int(message.text.strip().replace(",", ""))
@@ -719,26 +814,38 @@ async def handle_package_price(message: Message, session: AsyncSession, state: F
 
     await state.update_data(price=price)
     await state.set_state(Package.waiting_for_category)
-    await message.edit_text(
+
+    text = (
         f"📂 <b>{'دسته‌بندی' if lang == 'fa' else 'Category'}</b>\n\n"
         f"{'لطفاً دسته‌بندی بسته را انتخاب کنید:' if lang == 'fa' else 'Please select the package category:'}\n\n"
         f"1 - 💰 {'اقتصادی' if lang == 'fa' else 'Economy'}\n"
         f"2 - 👑 {'ویژه (VIP)' if lang == 'fa' else 'VIP'}\n"
-        f"3 - 🌐 {'تانل' if lang == 'fa' else 'Tunnel'}",
-        reply_markup=back_to_menu_kb(lang),
-        parse_mode="HTML",
+        f"3 - 🌐 {'تانل' if lang == 'fa' else 'Tunnel'}"
     )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
 
 
 @router.message(Package.waiting_for_category)
 async def handle_package_category(
-    message: Message, session: AsyncSession, state: FSMContext
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot
 ) -> None:
     user = await _get_user(session, message.from_user.id)
     lang = user.lang if user else "en"
 
     if message.from_user.id not in cfg.admin_ids:
         return
+
+    data = await state.get_data()
+    message_id = data.get("package_message_id")
 
     category_map = {
         "1": "economy",
@@ -783,16 +890,25 @@ async def handle_package_category(
     cat_name = category_names.get(category, category)
 
     await state.clear()
-    await message.edit_text(
+
+    text = (
         f"✅ <b>{'بسته ایجاد شد!' if lang == 'fa' else 'Package created!'}</b>\n\n"
         f"<b>{'نام:' if lang == 'fa' else 'Name:'}</b> {pkg.name}\n"
         f"<b>{'حجم:' if lang == 'fa' else 'Volume:'}</b> {pkg.volume_gb} GB\n"
         f"<b>{'مدت:' if lang == 'fa' else 'Duration:'}</b> {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
         f"<b>{'قیمت:' if lang == 'fa' else 'Price:'}</b> {pkg.price:,} {'تومان' if lang == 'fa' else 'IRR'}\n"
-        f"<b>{'دسته:' if lang == 'fa' else 'Category:'}</b> {cat_name}",
-        reply_markup=admin_packages_kb(lang),
-        parse_mode="HTML",
+        f"<b>{'دسته:' if lang == 'fa' else 'Category:'}</b> {cat_name}"
     )
+    try:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=admin_packages_kb(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(text, reply_markup=admin_packages_kb(lang), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "admin:package:list")

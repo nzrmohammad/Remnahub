@@ -463,43 +463,70 @@ def package_edit_kb(pkg_id: int, lang: str = "fa") -> InlineKeyboardMarkup:
     )
 
 
+def user_packages_category_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💰 اقتصادی" if lang == "fa" else "💰 Economy",
+                    callback_data="packages:category:economy",
+                ),
+                InlineKeyboardButton(
+                    text="👑 ویژه (VIP)" if lang == "fa" else "👑 VIP",
+                    callback_data="packages:category:vip",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🌐 تانل" if lang == "fa" else "🌐 Tunnel",
+                    callback_data="packages:category:tunnel",
+                ),
+            ],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
+        ]
+    )
+
+
 def user_packages_kb(
-    packages: list, lang: str = "fa", user_balance: int = 0
+    packages: list, lang: str = "fa", user_balance: int = 0, category: str = None
 ) -> tuple[str, InlineKeyboardMarkup]:
     if not packages:
         return (
-            f"📦 <b>{'بسته‌های فروش' if lang == 'fa' else 'Available Packages'}</b>\n\n"
-            f"{'در حال حاضر بسته‌ای برای فروش وجود ندارد.' if lang == 'fa' else 'No packages available for purchase at the moment.'}",
-            back_to_menu_kb(lang),
+            f"📦 <b>{'بسته‌ای موجود نیست' if lang == 'fa' else 'No packages available'}</b>",
+            user_packages_category_kb(lang),
         )
 
-    category_icons = {
-        "economy": "💰",
-        "vip": "👑",
-        "tunnel": "🌐",
+    category_names = {
+        "economy": "💰 اقتصادی",
+        "vip": "👑 ویژه",
+        "tunnel": "🌐 تانل",
     }
 
-    header = f"🚀 <b>{'پلن‌های فروش سرویس' if lang == 'fa' else 'Service Plans'}</b>\n"
-    header += f"{'💡 بسته مورد نظر خود را انتخاب کنید.' if lang == 'fa' else '💡 Select your preferred package.'}\n"
-    header += "────────────────────\n"
+    category_descriptions = {
+        "economy": "کشورها : 🇩🇪 , 🇫🇮" if lang == "fa" else "Countries: 🇩🇪 , 🇫🇮",
+        "vip": "کشورها : 🇩🇪 , 🇫🇮 , 🇦🇱 , 🇳🇱 , 🇺🇸"
+        if lang == "fa"
+        else "Countries: 🇩🇪 , 🇫🇮 , 🇦🇱 , 🇳🇱 , 🇺🇸",
+        "tunnel": "اینترنت مصرفی با نیم‌بها" if lang == "fa" else "Half-price internet",
+    }
+
+    cat_name = category_names.get(category, "")
+    cat_desc = category_descriptions.get(category, "")
 
     lines = []
     kb = []
-    for pkg in packages:
-        cat_icon = category_icons.get(pkg.category, "💰")
+
+    for pkg in sorted(packages, key=lambda x: x.price):
         can_buy = user_balance >= pkg.price
         status_icon = "✅" if can_buy else "❌"
         price_text = f"{pkg.price:,}"
 
         lines.append(
-            f"{cat_icon} <b>{pkg.name}</b>\n"
-            f"{'حجم:' if lang == 'fa' else 'Volume:'} {pkg.volume_gb} {'گیگابایت' if lang == 'fa' else 'GB'}\n"
-            f"{'مدت زمان :' if lang == 'fa' else 'Duration:'} {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
-            f"{'قیمت :' if lang == 'fa' else 'Price:'} {price_text} {'تومان' if lang == 'fa' else 'IRR'}\n"
-            f"────────────────────"
+            f"• <b>{pkg.name}</b>\n"
+            f"  💾 {pkg.volume_gb} GB | 📅 {pkg.days} {'day' if lang != 'fa' else 'روز'} | 💰 {price_text} {'تومان' if lang == 'fa' else 'IRR'}"
         )
 
-        btn_text = f"{status_icon} {'خرید' if lang == 'fa' else 'Buy'} {pkg.name} ({price_text} {'تومان' if lang == 'fa' else 'IRR'})"
+        btn_text = f"{status_icon} {pkg.name} ({price_text} {'تومان' if lang == 'fa' else 'IRR'})"
         kb.append(
             [
                 InlineKeyboardButton(
@@ -509,8 +536,13 @@ def user_packages_kb(
             ]
         )
 
-    kb.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")])
+    kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="packages:back")])
 
-    text = header + "\n\n".join(lines)
+    header = f"📦 <b>{cat_name}</b>\n"
+    header += f"💡 {cat_desc}\n\n"
+
+    text = header + "\n".join(lines)
+
+    return text, InlineKeyboardMarkup(inline_keyboard=kb)
 
     return text, InlineKeyboardMarkup(inline_keyboard=kb)
