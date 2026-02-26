@@ -23,6 +23,10 @@ from bot.keyboards.inline import (
     admin_users_kb,
     admin_stats_kb,
     admin_user_list_kb,
+    tutorial_os_select_kb,
+    tutorial_app_select_kb,
+    tutorial_view_kb,
+    settings_warnings_kb,
 )
 from bot.config import settings as cfg
 from bot.remnawave.client import remnawave
@@ -79,9 +83,9 @@ async def _build_stats_text(resp: dict, uuid: str, lang: str, use_cache: bool = 
         expire_at = resp.get("expireAt")
         online_at = user_traffic.get("onlineAt")
 
-    used_gb = round(used_bytes / 1e9, 2)
-    total_gb = round(total_bytes / 1e9, 2) if total_bytes > 0 else "∞"
-    remaining_gb = round(remaining_bytes / 1e9, 2)
+    used_gb = round(used_bytes / (1024**3), 2)
+    total_gb = round(total_bytes / (1024**3), 2) if total_bytes > 0 else "∞"
+    remaining_gb = round(remaining_bytes / (1024**3), 2)
 
     usage_percent = round((used_bytes / total_bytes) * 100, 1) if total_bytes > 0 else 0
     progress_bar = _build_progress_bar(usage_percent)
@@ -89,8 +93,12 @@ async def _build_stats_text(resp: dict, uuid: str, lang: str, use_cache: bool = 
     expire_display = "—"
     if expire_at:
         try:
-            days_left = days_until_persian(expire_at[:10] if isinstance(expire_at, str) else expire_at)
-            persian_expire = to_persian_date(expire_at[:10] if isinstance(expire_at, str) else expire_at)
+            days_left = days_until_persian(
+                expire_at[:10] if isinstance(expire_at, str) else expire_at
+            )
+            persian_expire = to_persian_date(
+                expire_at[:10] if isinstance(expire_at, str) else expire_at
+            )
             expire_display = f"{persian_expire} ({days_left} روز)"
         except Exception:
             expire_display = str(expire_at)[:10] if expire_at else "—"
@@ -141,7 +149,7 @@ async def cb_stats(call: CallbackQuery, session: AsyncSession) -> None:
 
     uuid = all_users[0].get("uuid")
     cache = await _get_user_stats_from_cache(session, uuid)
-    
+
     if cache:
         text = await _build_stats_text(cache, uuid, lang, use_cache=True)
     else:
@@ -178,7 +186,7 @@ async def cb_stats_nav(call: CallbackQuery, session: AsyncSession) -> None:
     current_user = all_users[index]
     uuid = current_user.get("uuid")
     cache = await _get_user_stats_from_cache(session, uuid)
-    
+
     if cache:
         text = await _build_stats_text(cache, uuid, lang, use_cache=True)
     else:
@@ -304,9 +312,9 @@ async def cb_account_detail(call: CallbackQuery, session: AsyncSession) -> None:
         return
 
     await call.message.edit_text(t(lang, "stats_loading"), reply_markup=back_to_menu_kb(lang))
-    
+
     cache = await _get_user_stats_from_cache(session, uuid)
-    
+
     if cache:
         text = await _build_stats_text(cache, uuid, lang, use_cache=True)
     else:
@@ -356,7 +364,65 @@ async def cb_tutorial(call: CallbackQuery, session: AsyncSession) -> None:
     user = await _get_user(session, call.from_user.id)
     lang = user.lang if user else "en"
     await call.answer()
-    await call.message.edit_text(t(lang, "tutorial_text"), reply_markup=back_to_menu_kb(lang))
+    await call.message.edit_text(
+        t(lang, "tutorial_os_select"), reply_markup=tutorial_os_select_kb(lang)
+    )
+
+
+@router.callback_query(F.data.startswith("tutorial:os:"))
+async def cb_tutorial_os(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    os_type = call.data.split(":")[-1]
+    await call.answer()
+    await call.message.edit_text(
+        t(lang, "tutorial_app_select"), reply_markup=tutorial_app_select_kb(os_type, lang)
+    )
+
+
+@router.callback_query(F.data == "tutorial:back_to_os")
+async def cb_tutorial_back_to_os(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+    await call.message.edit_text(
+        t(lang, "tutorial_os_select"), reply_markup=tutorial_os_select_kb(lang)
+    )
+
+
+@router.callback_query(F.data.startswith("tutorial:app:"))
+async def cb_tutorial_app(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    _, _, os_type, app = call.data.split(":")
+
+    app_key = f"tutorial_{os_type}_{app}"
+    url = getattr(cfg, app_key, "")
+
+    os_names = {"android": "Android", "ios": "iOS", "windows": "Windows"}
+    app_names = {"happ": "HAPP", "hiddify": "Hiddify", "v2rayng": "V2rayNG"}
+
+    await call.answer()
+    await call.message.edit_text(
+        t(lang, "tutorial_view").format(
+            os=os_names.get(os_type, os_type), app=app_names.get(app, app)
+        ),
+        reply_markup=tutorial_view_kb(lang, url) if url else back_to_menu_kb(lang),
+    )
+
+
+@router.callback_query(F.data == "tutorial:back_to_apps")
+async def cb_tutorial_back_to_apps(
+    call: CallbackQuery, session: AsyncSession, state: FSMContext
+) -> None:
+    data = await state.get_data()
+    os_type = data.get("last_os", "android")
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+    await call.message.edit_text(
+        t(lang, "tutorial_app_select"), reply_markup=tutorial_app_select_kb(os_type, lang)
+    )
 
 
 # ── Settings ───────────────────────────────────────────────────────────────────
@@ -376,6 +442,43 @@ async def cb_change_lang(call: CallbackQuery, session: AsyncSession) -> None:
     await call.message.edit_text(
         t("en", "lang_select_title"),
         reply_markup=lang_select_kb(),
+    )
+
+
+@router.callback_query(F.data == "settings:warnings")
+async def cb_settings_warnings(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+    await call.message.edit_text(
+        t(lang, "settings_warnings_title"),
+        reply_markup=settings_warnings_kb(lang),
+    )
+
+
+@router.callback_query(F.data == "settings:warning:expiry")
+async def cb_warning_expiry(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+    user.expiry_warning_enabled = not getattr(user, "expiry_warning_enabled", True)
+    await session.commit()
+    await call.message.edit_text(
+        t(lang, "settings_warnings_title"),
+        reply_markup=settings_warnings_kb(lang, expiry_enabled=user.expiry_warning_enabled),
+    )
+
+
+@router.callback_query(F.data == "settings:warning:volume")
+async def cb_warning_volume(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+    user.volume_warning_enabled = not getattr(user, "volume_warning_enabled", True)
+    await session.commit()
+    await call.message.edit_text(
+        t(lang, "settings_warnings_title"),
+        reply_markup=settings_warnings_kb(lang, volume_enabled=user.volume_warning_enabled),
     )
 
 

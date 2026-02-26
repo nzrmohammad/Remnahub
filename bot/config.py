@@ -40,5 +40,16 @@ class Settings(BaseSettings):
     payment_card_number: str = "شماره حساب"
     payment_card_holder: str = "نام"
 
+    # Tutorial Links
+    tutorial_android_happ: str = ""
+    tutorial_android_hiddify: str = ""
+    tutorial_android_v2rayng: str = ""
+    tutorial_ios_happ: str = ""
+    tutorial_ios_hiddify: str = ""
+    tutorial_ios_v2rayng: str = ""
+    tutorial_windows_happ: str = ""
+    tutorial_windows_hiddify: str = ""
+    tutorial_windows_v2rayng: str = ""
+
 
 settings = Settings()  # type: ignore

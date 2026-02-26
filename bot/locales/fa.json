@@ -26,6 +26,14 @@
     "services_loading": "📡 در حال دریافت سرویس‌ها...",
     "settings_title": "⚙️ تنظیمات",
     "btn_change_lang": "🌐 تغییر زبان",
-    "tutorial_text": "📚 برای مشاهده آموزش اتصال روی لینک زیر کلیک کنید:\nhttps://t.me/your_channel",
+    "settings_warnings": "🔔 هشدارها",
+    "settings_warnings_title": "🔔 تنظیمات هشدارها",
+    "settings_expiry_warning": "هشدار انقضا",
+    "settings_volume_warning": "هشدار اتمام حجم",
+    "tutorial_os_select": "📚 لطفاً سیستم‌عامل خود را برای دریافت آموزش انتخاب کنید:",
+    "tutorial_app_select": "📱 لطفاً نرم‌افزار مورد نظر را انتخاب کنید:",
+    "tutorial_view": "✅ آموزش کامل شما برای {os} - {app} آماده است.\n\nلطفاً روی دکمه زیر کلیک کنید تا آموزش را در مرورگر خود مشاهده نمایید.",
+    "btn_view_tutorial": "📖 مشاهده آموزش کامل",
+    "btn_back_to_apps": "🔙 بازگشت به لیست نرم‌افزارها",
     "profile_loading": "🧑‍💼 در حال بارگذاری پروفایل..."
 }

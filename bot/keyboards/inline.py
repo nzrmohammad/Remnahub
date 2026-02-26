@@ -146,6 +146,11 @@ def settings_kb(lang: str) -> InlineKeyboardMarkup:
                     text=t(lang, "btn_change_lang"), callback_data="settings:change_lang"
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "settings_warnings"), callback_data="settings:warnings"
+                )
+            ],
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
         ]
     )
@@ -330,3 +335,67 @@ def admin_user_list_kb(page: int, total_pages: int, lang: str = "fa") -> InlineK
         kb.append(nav_buttons)
     kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:users")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def tutorial_os_select_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Android", callback_data="tutorial:os:android"),
+                InlineKeyboardButton(text="iOS", callback_data="tutorial:os:ios"),
+                InlineKeyboardButton(text="Windows", callback_data="tutorial:os:windows"),
+            ],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
+        ]
+    )
+
+
+def tutorial_app_select_kb(os: str, lang: str = "fa") -> InlineKeyboardMarkup:
+    os_text = {"android": "Android", "ios": "iOS", "windows": "Windows"}.get(os, os)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"Happ (پیشنهادی)", callback_data=f"tutorial:app:{os}:happ"
+                )
+            ],
+            [InlineKeyboardButton(text="Hiddify", callback_data=f"tutorial:app:{os}:hiddify")],
+            [InlineKeyboardButton(text="V2rayNG", callback_data=f"tutorial:app:{os}:v2rayng")],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="tutorial:back_to_os")],
+        ]
+    )
+
+
+def tutorial_view_kb(lang: str, url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t(lang, "btn_view_tutorial"), url=url)],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back_to_apps"), callback_data="tutorial:back_to_apps"
+                )
+            ],
+        ]
+    )
+
+
+def settings_warnings_kb(
+    lang: str, expiry_enabled: bool = True, volume_enabled: bool = True
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"{'✅' if expiry_enabled else '⬜'} {t(lang, 'settings_expiry_warning')}",
+                    callback_data="settings:warning:expiry",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{'✅' if volume_enabled else '⬜'} {t(lang, 'settings_volume_warning')}",
+                    callback_data="settings:warning:volume",
+                )
+            ],
+            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
+        ]
+    )

@@ -19,6 +19,8 @@ class User(Base):
     balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     remnawave_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expiry_warning_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    volume_warning_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

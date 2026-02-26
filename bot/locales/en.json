@@ -26,6 +26,14 @@
   "services_loading": "📡 Fetching your services...",
   "settings_title": "⚙️ Settings",
   "btn_change_lang": "🌐 Change Language",
-  "tutorial_text": "📚 Tap the link below to access the connection guide:\nhttps://t.me/your_channel",
+  "settings_warnings": "🔔 Notifications",
+  "settings_warnings_title": "🔔 Notification Settings",
+  "settings_expiry_warning": "Expiry Warning",
+  "settings_volume_warning": "Data Limit Warning",
+  "tutorial_os_select": "📚 Please select your operating system to receive the guide:",
+  "tutorial_app_select": "📱 Please select your preferred app:",
+  "tutorial_view": "✅ Your complete guide for {os} - {app} is ready.\n\nPlease click the button below to view the guide in your browser.",
+  "btn_view_tutorial": "📖 View Full Guide",
+  "btn_back_to_apps": "🔙 Back to App List",
   "profile_loading": "🧑‍💼 Loading your profile..."
 }

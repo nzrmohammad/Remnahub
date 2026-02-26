@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Integer, String, DateTime, Text, JSON
+from sqlalchemy import BigInteger, String, DateTime, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bot.db.base import Base
@@ -15,9 +15,9 @@ class UserStatsCache(Base):
     uuid: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="UNKNOWN")
-    used_traffic_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    total_traffic_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    remaining_traffic_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    used_traffic_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_traffic_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    remaining_traffic_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     expire_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     online_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
