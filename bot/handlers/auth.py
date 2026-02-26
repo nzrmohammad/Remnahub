@@ -12,7 +12,7 @@ from bot.core.i18n import t
 from bot.db.models.user import User
 from bot.keyboards.inline import auth_menu_kb, back_to_auth_kb, main_menu_kb
 from bot.remnawave.client import remnawave
-from bot.states.fsm import NewService
+from bot.states.fsm import NewService, AuthMenu
 
 log = structlog.get_logger()
 router = Router(name="auth")
@@ -23,9 +23,8 @@ router = Router(name="auth")
 
 @router.callback_query(F.data.startswith("lang:"))
 async def cb_lang_select(call: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
-    lang = call.data.split(":")[1]  # "fa" or "en"
+    lang = call.data.split(":")[1]
 
-    # Save language to DB
     result = await session.execute(select(User).where(User.telegram_id == call.from_user.id))
     user = result.scalar_one_or_none()
     if user:
@@ -35,7 +34,11 @@ async def cb_lang_select(call: CallbackQuery, session: AsyncSession, state: FSMC
     await state.update_data(lang=lang)
     await call.answer()
 
-    # Edit same message → show Login / New Service
+    current_state = await state.get_state()
+
+    if current_state == AuthMenu.waiting_for_rules.state:
+        await state.set_state(AuthMenu.idle)
+
     await call.message.edit_text(
         t(lang, "auth_select_option"),
         reply_markup=auth_menu_kb(lang),

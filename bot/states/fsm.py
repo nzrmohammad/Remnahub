@@ -9,6 +9,8 @@ class LanguageSelect(StatesGroup):
 
 class AuthMenu(StatesGroup):
     idle = State()
+    waiting_for_rules = State()
+    waiting_for_lang = State()
 
 
 class NewService(StatesGroup):

@@ -6,6 +6,57 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.core.i18n import t
 
 
+RULES_TEXT_FA = """📜 <b>قوانین و شرایط استفاده</b>
+
+لطفاً قوانین را با دقت مطالعه کنید:
+
+1️⃣ سرویس دارای تست میباشد لطفا قبل از خرید به صورت رایگان تست بگیرید.
+
+2️⃣ در صورتی که بدون تست کردن سرویس خرید انجام شود و کاربر ناراضی باشد متاسفانه امکان بازگشت وجه وجود ندارد.
+
+3️⃣ در صورت اختلال فقط به اطلاعیه های کانال توجه فرمایید در غیر این صورت سرویس فاقد پشتیبانی میباشد.
+
+4️⃣ هرگونه مشکلی که روی سرویس ها یا سوالی دارید داخل یک پیام همراه با شناسه کاربری ارسال کنید در غیر این صورت هیچگونه پاسخی از سمت پشتیبانی دریافت نخواهد شد.
+
+5️⃣ هرگونه بی احترامی باعث لغو سرویس و عدم بازگشت وجه خواهد شد.
+
+6️⃣ تایم پشتیبانی از ساعت 10 صبح الی 12 شب هست و اگر کاربری خارج از تایم پشتیبانی پیام ارسال کند در تایم پشتیبانی پاسخ داده خواهد شد.
+
+7️⃣ عدم رعایت قوانین باعث حذف سرویس و عدم پشتیبانی خواهد بود."""
+
+
+RULES_TEXT_EN = """📜 <b>Terms and Conditions</b>
+
+Please read the rules carefully:
+
+1️⃣ The service has a free test. Please test before purchasing.
+
+2️⃣ If you purchase without testing and are unsatisfied, unfortunately there is no refund.
+
+3️⃣ In case of disruption, only pay attention to channel announcements. Otherwise, the service has no support.
+
+4️⃣ Any issues or questions about services should be sent in one message with your user ID. Otherwise, you will not receive any response from support.
+
+5️⃣ Any disrespect will result in service cancellation and no refund.
+
+6️⃣ Support hours are from 10 AM to 12 AM. If you send messages outside support hours, you will be answered during support hours.
+
+7️⃣ Failure to comply with the rules will result in service removal and no support."""
+
+
+def rules_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ قوانین را می‌پذیرم" if lang == "fa" else "I accept the rules",
+                    callback_data="rules:accept",
+                )
+            ],
+        ]
+    )
+
+
 def lang_select_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
