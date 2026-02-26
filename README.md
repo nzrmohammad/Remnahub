@@ -120,29 +120,6 @@ Connection guide links for each OS and app:
 | `PAYMENT_CARD_NUMBER` | Payment card number displayed to users | - |
 | `PAYMENT_CARD_HOLDER` | Card holder name | - |
 
-
----
-
-## New Features
-
-### Connection Guide (Tutorial)
-Users can select their operating system and preferred app to receive tailored connection instructions:
-- **OS Selection:** Android, iOS, Windows
-- **App Selection:** HAPP (recommended), Hiddify, V2rayNG
-- Links are configured via environment variables
-
-### Warning Settings
-Users can enable/disable notifications for:
-- **Expiry Warning:** Notifies when subscription is about to expire
-- **Volume Warning:** Notifies when data limit is running low
-
-These settings are stored in the `users` table:
-- `expiry_warning_enabled` (boolean, default: true)
-- `volume_warning_enabled` (boolean, default: true)
-
-
----
-
 ## Project Structure
 
 ```

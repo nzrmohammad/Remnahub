@@ -27,11 +27,15 @@ from bot.keyboards.inline import (
     tutorial_app_select_kb,
     tutorial_view_kb,
     settings_warnings_kb,
+    admin_packages_kb,
+    package_list_kb,
+    package_edit_kb,
+    user_packages_kb,
 )
 from bot.config import settings as cfg
 from bot.remnawave.client import remnawave
 from bot.utils.date import to_persian_date, days_until_persian
-from bot.states.fsm import Admin
+from bot.states.fsm import Admin, Package
 
 router = Router(name="menu")
 
@@ -338,22 +342,22 @@ async def cb_services(call: CallbackQuery, session: AsyncSession) -> None:
     lang = user.lang if user else "en"
     await call.answer()
 
-    if not user or not user.remnawave_uuid:
+    if not user:
         await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
         return
 
-    await call.message.edit_text(t(lang, "services_loading"), reply_markup=back_to_menu_kb(lang))
-    items = await remnawave.get_user_services(user.remnawave_uuid)
+    from bot.db.models import Package as PackageModel
 
-    if items:
-        lines = [f"📡 <b>{'سرویس‌ها' if lang == 'fa' else 'Services'}</b>\n"]
-        for i, item in enumerate(items, 1):
-            lines.append(f"{i}. {item.get('name', '—')} — {item.get('protocol', '—')}")
-        text = "\n".join(lines)
-    else:
-        text = f"📡 {'سرویسی یافت نشد' if lang == 'fa' else 'No services found.'}"
+    result = await session.execute(
+        select(PackageModel)
+        .where(PackageModel.is_active == True)
+        .order_by(PackageModel.sort_order, PackageModel.id)
+    )
+    packages = result.scalars().all()
 
-    await call.message.edit_text(text, reply_markup=back_to_menu_kb(lang), parse_mode="HTML")
+    text, keyboard = user_packages_kb(packages, lang, user.balance)
+
+    await call.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 # ── Tutorial ───────────────────────────────────────────────────────────────────
@@ -581,6 +585,377 @@ async def cb_admin_stats(call: CallbackQuery, session: AsyncSession) -> None:
     await call.message.edit_text(
         f"📊 <b>{'گزارش‌ها و آمار' if lang == 'fa' else 'Reports & Statistics'}</b>\n\n{'لطفاً یک گزینه را انتخاب کنید:' if lang == 'fa' else 'Please select an option:'}",
         reply_markup=admin_stats_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "admin:packages")
+async def cb_admin_packages(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    await call.message.edit_text(
+        f"📦 <b>{'مدیریت بسته‌ها' if lang == 'fa' else 'Package Management'}</b>\n\n{'لطفاً یک گزینه را انتخاب کنید:' if lang == 'fa' else 'Please select an option:'}",
+        reply_markup=admin_packages_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "admin:package:add")
+async def cb_admin_package_add(
+    call: CallbackQuery, session: AsyncSession, state: FSMContext
+) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    await state.set_state(Package.waiting_for_name)
+    await call.message.edit_text(
+        f"➕ <b>{'افزودن بسته جدید' if lang == 'fa' else 'Add New Package'}</b>\n\n"
+        f"{'لطفاً نام بسته را وارد کنید:' if lang == 'fa' else 'Please enter the package name:'}",
+        reply_markup=back_to_menu_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Package.waiting_for_name)
+async def handle_package_name(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    user = await _get_user(session, message.from_user.id)
+    lang = user.lang if user else "en"
+
+    if message.from_user.id not in cfg.admin_ids:
+        return
+
+    await state.update_data(name=message.text.strip())
+    await state.set_state(Package.waiting_for_volume)
+    await message.edit_text(
+        f"📦 <b>{'حجم بسته' if lang == 'fa' else 'Package Volume'}</b>\n\n"
+        f"{'لطفاً حجم بسته را به گیگابایت وارد کنید:' if lang == 'fa' else 'Please enter the package volume in GB:'}",
+        reply_markup=back_to_menu_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Package.waiting_for_volume)
+async def handle_package_volume(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    user = await _get_user(session, message.from_user.id)
+    lang = user.lang if user else "en"
+
+    if message.from_user.id not in cfg.admin_ids:
+        return
+
+    try:
+        volume = int(message.text.strip())
+        if volume <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer(
+            f"❌ {'لطفاً عدد معتبر وارد کنید:' if lang == 'fa' else 'Please enter a valid number:'}",
+        )
+        return
+
+    await state.update_data(volume_gb=volume)
+    await state.set_state(Package.waiting_for_days)
+    await message.edit_text(
+        f"📅 <b>{'مدت بسته' if lang == 'fa' else 'Package Duration'}</b>\n\n"
+        f"{'لطفاً تعداد روز را وارد کنید:' if lang == 'fa' else 'Please enter the number of days:'}",
+        reply_markup=back_to_menu_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Package.waiting_for_days)
+async def handle_package_days(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    user = await _get_user(session, message.from_user.id)
+    lang = user.lang if user else "en"
+
+    if message.from_user.id not in cfg.admin_ids:
+        return
+
+    try:
+        days = int(message.text.strip())
+        if days <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer(
+            f"❌ {'لطفاً عدد معتبر وارد کنید:' if lang == 'fa' else 'Please enter a valid number:'}",
+        )
+        return
+
+    await state.update_data(days=days)
+    await state.set_state(Package.waiting_for_price)
+    await message.edit_text(
+        f"💰 <b>{'قیمت بسته' if lang == 'fa' else 'Package Price'}</b>\n\n"
+        f"{'لطفاً قیمت را به تومان وارد کنید:' if lang == 'fa' else 'Please enter the price in Toman:'}",
+        reply_markup=back_to_menu_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Package.waiting_for_price)
+async def handle_package_price(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    user = await _get_user(session, message.from_user.id)
+    lang = user.lang if user else "en"
+
+    if message.from_user.id not in cfg.admin_ids:
+        return
+
+    try:
+        price = int(message.text.strip().replace(",", ""))
+        if price <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer(
+            f"❌ {'لطفاً عدد معتبر وارد کنید:' if lang == 'fa' else 'Please enter a valid number:'}",
+        )
+        return
+
+    await state.update_data(price=price)
+    await state.set_state(Package.waiting_for_category)
+    await message.edit_text(
+        f"📂 <b>{'دسته‌بندی' if lang == 'fa' else 'Category'}</b>\n\n"
+        f"{'لطفاً دسته‌بندی بسته را انتخاب کنید:' if lang == 'fa' else 'Please select the package category:'}\n\n"
+        f"1 - 💰 {'اقتصادی' if lang == 'fa' else 'Economy'}\n"
+        f"2 - 👑 {'ویژه (VIP)' if lang == 'fa' else 'VIP'}\n"
+        f"3 - 🌐 {'تانل' if lang == 'fa' else 'Tunnel'}",
+        reply_markup=back_to_menu_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Package.waiting_for_category)
+async def handle_package_category(
+    message: Message, session: AsyncSession, state: FSMContext
+) -> None:
+    user = await _get_user(session, message.from_user.id)
+    lang = user.lang if user else "en"
+
+    if message.from_user.id not in cfg.admin_ids:
+        return
+
+    category_map = {
+        "1": "economy",
+        "2": "vip",
+        "3": "tunnel",
+        "economy": "economy",
+        "vip": "vip",
+        "tunnel": "tunnel",
+        "اقتصادی": "economy",
+        "ویژه": "vip",
+        "تانل": "tunnel",
+    }
+
+    category_input = message.text.strip().lower()
+    category = category_map.get(category_input)
+
+    if not category:
+        await message.answer(
+            f"❌ {'لطفاً عدد معتبر انتخاب کنید:' if lang == 'fa' else 'Please select a valid number:'}\n\n"
+            f"1 - 💰 {'اقتصادی' if lang == 'fa' else 'Economy'}\n"
+            f"2 - 👑 {'ویژه (VIP)' if lang == 'fa' else 'VIP'}\n"
+            f"3 - 🌐 {'تانل' if lang == 'fa' else 'Tunnel'}",
+            parse_mode="HTML",
+        )
+        return
+
+    data = await state.get_data()
+
+    from bot.db.models import Package as PackageModel
+
+    pkg = PackageModel(
+        name=data["name"],
+        volume_gb=data["volume_gb"],
+        days=data["days"],
+        price=data["price"],
+        category=category,
+    )
+    session.add(pkg)
+    await session.commit()
+
+    category_names = {"economy": "💰 اقتصادی", "vip": "👑 ویژه", "tunnel": "🌐 تانل"}
+    cat_name = category_names.get(category, category)
+
+    await state.clear()
+    await message.edit_text(
+        f"✅ <b>{'بسته ایجاد شد!' if lang == 'fa' else 'Package created!'}</b>\n\n"
+        f"<b>{'نام:' if lang == 'fa' else 'Name:'}</b> {pkg.name}\n"
+        f"<b>{'حجم:' if lang == 'fa' else 'Volume:'}</b> {pkg.volume_gb} GB\n"
+        f"<b>{'مدت:' if lang == 'fa' else 'Duration:'}</b> {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
+        f"<b>{'قیمت:' if lang == 'fa' else 'Price:'}</b> {pkg.price:,} {'تومان' if lang == 'fa' else 'IRR'}\n"
+        f"<b>{'دسته:' if lang == 'fa' else 'Category:'}</b> {cat_name}",
+        reply_markup=admin_packages_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "admin:package:list")
+async def cb_admin_package_list(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    from bot.db.models import Package as PackageModel
+
+    result = await session.execute(
+        select(PackageModel).order_by(PackageModel.sort_order, PackageModel.id)
+    )
+    packages = result.scalars().all()
+
+    if not packages:
+        await call.message.edit_text(
+            f"📦 <b>{'بسته‌ها' if lang == 'fa' else 'Packages'}</b>\n\n"
+            f"{'بسته‌ای یافت نشد.' if lang == 'fa' else 'No packages found.'}",
+            reply_markup=admin_packages_kb(lang),
+            parse_mode="HTML",
+        )
+        return
+
+    await call.message.edit_text(
+        f"📦 <b>{'بسته‌های موجود' if lang == 'fa' else 'Available Packages'}</b>\n\n"
+        f"{'برای مدیریت روی هر بسته کلیک کنید:' if lang == 'fa' else 'Click on a package to manage:'}",
+        reply_markup=package_list_kb(packages, lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("package:edit:"))
+async def cb_package_edit(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    pkg_id = int(call.data.split(":")[-1])
+    from bot.db.models import Package as PackageModel
+
+    result = await session.execute(select(PackageModel).where(PackageModel.id == pkg_id))
+    pkg = result.scalar_one_or_none()
+
+    if not pkg:
+        return
+
+    await call.message.edit_text(
+        f"📦 <b>{pkg.name}</b>\n\n"
+        f"<b>{'حجم:' if lang == 'fa' else 'Volume:'}</b> {pkg.volume_gb} GB\n"
+        f"<b>{'مدت:' if lang == 'fa' else 'Duration:'}</b> {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
+        f"<b>{'کشور:' if lang == 'fa' else 'Country:'}</b> {pkg.country or '-'}\n"
+        f"<b>{'وضعیت:' if lang == 'fa' else 'Status:'}</b> {'✅ فعال' if pkg.is_active else '❌ غیرفعال'}",
+        reply_markup=package_edit_kb(pkg.id, lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("package:toggle:"))
+async def cb_package_toggle(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    _, _, pkg_id, status = call.data.split(":")
+    pkg_id = int(pkg_id)
+    is_active = status == "1"
+
+    from bot.db.models import Package as PackageModel
+
+    result = await session.execute(select(PackageModel).where(PackageModel.id == pkg_id))
+    pkg = result.scalar_one_or_none()
+
+    if not pkg:
+        return
+
+    pkg.is_active = is_active
+    await session.commit()
+
+    await call.message.edit_text(
+        f"📦 <b>{pkg.name}</b>\n\n"
+        f"<b>{'حجم:' if lang == 'fa' else 'Volume:'}</b> {pkg.volume_gb} GB\n"
+        f"<b>{'مدت:' if lang == 'fa' else 'Duration:'}</b> {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
+        f"<b>{'کشور:' if lang == 'fa' else 'Country:'}</b> {pkg.country or '-'}\n"
+        f"<b>{'وضعیت:' if lang == 'fa' else 'Status:'}</b> {'✅ فعال' if pkg.is_active else '❌ غیرفعال'}",
+        reply_markup=package_edit_kb(pkg.id, lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("package:delete:"))
+async def cb_package_delete(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if call.from_user.id not in cfg.admin_ids:
+        return
+
+    pkg_id = int(call.data.split(":")[-1])
+
+    from bot.db.models import Package as PackageModel
+
+    result = await session.execute(select(PackageModel).where(PackageModel.id == pkg_id))
+    pkg = result.scalar_one_or_none()
+
+    if not pkg:
+        return
+
+    await session.delete(pkg)
+    await session.commit()
+
+    await call.message.edit_text(
+        f"✅ <b>{'بسته حذف شد!' if lang == 'fa' else 'Package deleted!'}",
+        reply_markup=admin_packages_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("package:buy:"))
+async def cb_package_buy(call: CallbackQuery, session: AsyncSession) -> None:
+    user = await _get_user(session, call.from_user.id)
+    lang = user.lang if user else "en"
+    await call.answer()
+
+    if not user:
+        await call.message.edit_text(t(lang, "not_authorized"), reply_markup=back_to_menu_kb(lang))
+        return
+
+    pkg_id = int(call.data.split(":")[-1])
+
+    from bot.db.models import Package as PackageModel
+
+    result = await session.execute(select(PackageModel).where(PackageModel.id == pkg_id))
+    pkg = result.scalar_one_or_none()
+
+    if not pkg or not pkg.is_active:
+        await call.message.edit_text(
+            f"❌ {'این بسته فعال نیست.' if lang == 'fa' else 'This package is not active.'}",
+            reply_markup=back_to_menu_kb(lang),
+            parse_mode="HTML",
+        )
+        return
+
+    price_text = f"{pkg.price:,}"
+    await call.message.edit_text(
+        f"🛒 <b>{'خرید بسته' if lang == 'fa' else 'Purchase Package'}</b>\n\n"
+        f"<b>{'بسته:' if lang == 'fa' else 'Package:'}</b> {pkg.name}\n"
+        f"<b>{'حجم:' if lang == 'fa' else 'Volume:'}</b> {pkg.volume_gb} GB\n"
+        f"<b>{'مدت:' if lang == 'fa' else 'Duration:'}</b> {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
+        f"<b>{'قیمت:' if lang == 'fa' else 'Price:'}</b> {price_text} {'تومان' if lang == 'fa' else 'IRR'}\n\n"
+        f"{'برای ادامه خرید با پشتیبانی تماس بگیرید.' if lang == 'fa' else 'Contact support to complete your purchase.'}\n\n"
+        f"<b>ID:</b> <code>{pkg.id}</code>",
+        reply_markup=back_to_menu_kb(lang),
         parse_mode="HTML",
     )
 

@@ -265,6 +265,9 @@ def admin_main_kb(lang: str = "fa") -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="👥 مدیریت کاربران", callback_data="admin:users"),
             ],
             [
+                InlineKeyboardButton(text="📦 مدیریت بسته‌ها", callback_data="admin:packages"),
+            ],
+            [
                 InlineKeyboardButton(text="💾 پشتیبان‌گیری", callback_data="admin:backup"),
             ],
             [
@@ -399,3 +402,115 @@ def settings_warnings_kb(
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
         ]
     )
+
+
+def admin_packages_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="➕ افزودن بسته جدید", callback_data="admin:package:add"),
+            ],
+            [
+                InlineKeyboardButton(text="📋 لیست بسته‌ها", callback_data="admin:package:list"),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:panel"),
+            ],
+        ]
+    )
+
+
+def package_list_kb(packages: list, lang: str = "fa") -> InlineKeyboardMarkup:
+    kb = []
+    category_icons = {
+        "economy": "💰",
+        "vip": "👑",
+        "tunnel": "🌐",
+    }
+    for pkg in packages:
+        status = "✅" if pkg.is_active else "❌"
+        cat_icon = category_icons.get(pkg.category, "💰")
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{status} {cat_icon} {pkg.name} - {pkg.volume_gb}GB/{pkg.days}روز",
+                    callback_data=f"package:edit:{pkg.id}",
+                )
+            ]
+        )
+    kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:packages")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def package_edit_kb(pkg_id: int, lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ فعال کردن", callback_data=f"package:toggle:{pkg_id}:1"
+                ),
+                InlineKeyboardButton(
+                    text="❌ غیرفعال کردن", callback_data=f"package:toggle:{pkg_id}:0"
+                ),
+            ],
+            [
+                InlineKeyboardButton(text="🗑️ حذف بسته", callback_data=f"package:delete:{pkg_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 بازگشت به لیست", callback_data="admin:package:list"),
+            ],
+        ]
+    )
+
+
+def user_packages_kb(
+    packages: list, lang: str = "fa", user_balance: int = 0
+) -> tuple[str, InlineKeyboardMarkup]:
+    if not packages:
+        return (
+            f"📦 <b>{'بسته‌های فروش' if lang == 'fa' else 'Available Packages'}</b>\n\n"
+            f"{'در حال حاضر بسته‌ای برای فروش وجود ندارد.' if lang == 'fa' else 'No packages available for purchase at the moment.'}",
+            back_to_menu_kb(lang),
+        )
+
+    category_icons = {
+        "economy": "💰",
+        "vip": "👑",
+        "tunnel": "🌐",
+    }
+
+    header = f"🚀 <b>{'پلن‌های فروش سرویس' if lang == 'fa' else 'Service Plans'}</b>\n"
+    header += f"{'💡 بسته مورد نظر خود را انتخاب کنید.' if lang == 'fa' else '💡 Select your preferred package.'}\n"
+    header += "────────────────────\n"
+
+    lines = []
+    kb = []
+    for pkg in packages:
+        cat_icon = category_icons.get(pkg.category, "💰")
+        can_buy = user_balance >= pkg.price
+        status_icon = "✅" if can_buy else "❌"
+        price_text = f"{pkg.price:,}"
+
+        lines.append(
+            f"{cat_icon} <b>{pkg.name}</b>\n"
+            f"{'حجم:' if lang == 'fa' else 'Volume:'} {pkg.volume_gb} {'گیگابایت' if lang == 'fa' else 'GB'}\n"
+            f"{'مدت زمان :' if lang == 'fa' else 'Duration:'} {pkg.days} {'روز' if lang == 'fa' else 'days'}\n"
+            f"{'قیمت :' if lang == 'fa' else 'Price:'} {price_text} {'تومان' if lang == 'fa' else 'IRR'}\n"
+            f"────────────────────"
+        )
+
+        btn_text = f"{status_icon} {'خرید' if lang == 'fa' else 'Buy'} {pkg.name} ({price_text} {'تومان' if lang == 'fa' else 'IRR'})"
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    text=btn_text,
+                    callback_data=f"package:buy:{pkg.id}",
+                )
+            ]
+        )
+
+    kb.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")])
+
+    text = header + "\n\n".join(lines)
+
+    return text, InlineKeyboardMarkup(inline_keyboard=kb)
