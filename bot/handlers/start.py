@@ -9,7 +9,13 @@ from sqlalchemy import select
 
 from bot.core.i18n import t
 from bot.db.models.user import User
-from bot.keyboards.inline import lang_select_kb, rules_kb, RULES_TEXT_FA, RULES_TEXT_EN
+from bot.keyboards.inline import (
+    lang_select_kb,
+    rules_kb,
+    RULES_TEXT_FA,
+    RULES_TEXT_EN,
+    main_menu_kb,
+)
 from bot.states.fsm import AuthMenu
 
 router = Router(name="start")
@@ -43,10 +49,17 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
         user.full_name = message.from_user.full_name
         await session.commit()
 
-        await message.answer(
-            t("en", "lang_select_title"),
-            reply_markup=lang_select_kb(),
-        )
+        if user.is_registered and user.remnawave_uuid:
+            await message.answer(
+                t(user.lang, "menu_welcome"),
+                reply_markup=main_menu_kb(user.lang),
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                t("en", "lang_select_title"),
+                reply_markup=lang_select_kb(),
+            )
 
 
 @router.callback_query(lambda c: c.data == "rules:accept")

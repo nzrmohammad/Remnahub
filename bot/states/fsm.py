@@ -39,6 +39,10 @@ class Admin(StatesGroup):
     idle = State()
     waiting_for_telegram_id = State()
     waiting_for_search = State()
+    waiting_for_username = State()
+    waiting_for_volume = State()
+    waiting_for_days = State()
+    waiting_for_squads = State()
 
 
 class Package(StatesGroup):

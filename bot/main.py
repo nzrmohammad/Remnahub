@@ -7,6 +7,7 @@ import structlog
 from bot.config import settings
 from bot.core.dispatcher import create_dispatcher
 from bot.core.stats_sync import start_stats_sync_task
+from bot.core.user_notifications import start_notification_task
 from bot.db.engine import engine
 from bot.db.base import Base
 from bot.db.models import User, UserStatsCache  # noqa: F401
@@ -19,6 +20,9 @@ async def on_startup(bot, dispatcher) -> None:
 
     asyncio.create_task(start_stats_sync_task())
     logging.info("Stats sync task started")
+
+    asyncio.create_task(start_notification_task(bot))
+    logging.info("Notification task started")
 
 
 async def main() -> None:

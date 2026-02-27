@@ -32,6 +32,17 @@ class RemnawaveClient:
                 log.warning("remnawave_api_error", status=resp.status, url=url)
                 return None
 
+    async def _post(self, path: str, data: dict | None = None) -> Any:
+        url = f"{self._base_url}{path}"
+        log.info("remnawave_post_request", url=url, data=data)
+        async with aiohttp.ClientSession(headers=self._headers, timeout=self._timeout) as session:
+            async with session.post(url, json=data, ssl=False) as resp:
+                log.info("remnawave_post_response", status=resp.status, url=url)
+                if resp.status in (200, 201):
+                    return await resp.json()
+                log.warning("remnawave_api_error", status=resp.status, url=url)
+                return None
+
     async def get_user_by_telegram_id(self, telegram_id: int) -> dict | None:
         """Return user dict from Remnawave if telegram_id matches, else None."""
         log.info("remnawave_get_user_by_telegram_id", telegram_id=telegram_id)
@@ -82,6 +93,95 @@ class RemnawaveClient:
             return result.get("response", {}).get("items", [])
         return []
 
+    async def get_all_users(
+        self, page: int = 1, per_page: int = 20
+    ) -> tuple[list[dict] | None, int]:
+        """Return paginated users from RemnaWave panel or None on error."""
+        params = {"start": (page - 1) * per_page, "size": per_page}
+        result = await self._get("/api/users", params=params)
+        if result is None:
+            return None, 0
+
+        response_data = result.get("response", {})
+        users = response_data.get("users", [])
+        total = response_data.get("total", 0)
+        if isinstance(users, list):
+            return users, total
+        return [], 0
+
 
 # Singleton instance
 remnawave = RemnawaveClient()
+
+
+async def get_internal_squads() -> list[dict]:
+    """Return list of internal squads from RemnaWave panel."""
+    try:
+        result = await remnawave._get("/api/internal-squads")
+        if result is None:
+            log.warning("get_internal_squads returned None")
+            return []
+        response = result.get("response")
+        if response is None:
+            log.warning("get_internal_squads response is None")
+            return []
+        squads = response if isinstance(response, list) else []
+        log.info("get_internal_squads", count=len(squads))
+        return squads
+    except Exception as e:
+        log.error("get_internal_squads_error", error=str(e))
+        return []
+
+
+async def create_remnawave_user(
+    username: str,
+    telegram_id: int | None,
+    traffic_limit_bytes: int,
+    expire_at: str,
+    traffic_reset: str = "NO_RESET",
+    squads: list[str] | None = None,
+) -> dict | None:
+    """Create a new user in RemnaWave panel."""
+    data = {
+        "username": username,
+        "status": "ACTIVE",
+        "trafficLimitBytes": traffic_limit_bytes,
+        "trafficLimitStrategy": traffic_reset,
+        "expireAt": expire_at,
+    }
+    if telegram_id:
+        data["telegramId"] = telegram_id
+    if squads:
+        data["activeInternalSquads"] = squads
+
+    result = await remnawave._post("/api/users", data)
+    if result:
+        return result.get("response")
+    return None
+
+
+async def revoke_user_subscription(uuid: str) -> dict | None:
+    """Revoke user subscription and generate new short UUID."""
+    data = {"revokeOnlyPasswords": False}
+    result = await remnawave._post(f"/api/users/{uuid}/actions/revoke", data)
+    if result:
+        return result.get("response")
+    return None
+
+
+async def reset_and_set_user_package(
+    uuid: str,
+    volume_bytes: int,
+    expire_at: str,
+) -> dict | None:
+    """Reset user traffic to 0 and set new volume and expiry."""
+    data = {
+        "trafficLimitBytes": volume_bytes,
+        "trafficLimitStrategy": "RESET",
+        "expireAt": expire_at,
+        "usedTrafficBytes": 0,
+    }
+    result = await remnawave._post(f"/api/users/{uuid}", data)
+    if result:
+        return result.get("response")
+    return None

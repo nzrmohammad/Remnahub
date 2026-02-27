@@ -10,7 +10,7 @@ import structlog
 from bot.config import settings
 from bot.core.i18n import t
 from bot.db.models.user import User
-from bot.keyboards.inline import auth_menu_kb, back_to_auth_kb, main_menu_kb
+from bot.keyboards.inline import auth_menu_kb, back_to_auth_kb, main_menu_kb, settings_kb
 from bot.remnawave.client import remnawave
 from bot.states.fsm import NewService, AuthMenu
 
@@ -33,6 +33,15 @@ async def cb_lang_select(call: CallbackQuery, session: AsyncSession, state: FSMC
 
     await state.update_data(lang=lang)
     await call.answer()
+
+    data = await state.get_data()
+    if data.get("lang_change_from") == "settings":
+        await state.update_data(lang_change_from=None)
+        await call.message.edit_text(
+            t(lang, "settings_title"),
+            reply_markup=settings_kb(lang),
+        )
+        return
 
     current_state = await state.get_state()
 

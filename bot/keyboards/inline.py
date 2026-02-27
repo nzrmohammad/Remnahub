@@ -143,13 +143,12 @@ def settings_kb(lang: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t(lang, "btn_change_lang"), callback_data="settings:change_lang"
-                )
-            ],
-            [
+                    text=t(lang, "btn_change_lang"),
+                    callback_data="settings:change_lang:from_settings",
+                ),
                 InlineKeyboardButton(
                     text=t(lang, "settings_warnings"), callback_data="settings:warnings"
-                )
+                ),
             ],
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
         ]
@@ -160,12 +159,12 @@ def account_list_kb(accounts: list[dict], lang: str) -> InlineKeyboardMarkup:
     kb = []
     for account in accounts:
         username = account.get("username", "—")
-        status = account.get("status", "")
-        status_icon = "✅" if status == "ACTIVE" else "❌"
+        usage_percent = account.get("usage_percent", 0)
+        days_remaining = account.get("days_remaining", 0)
         kb.append(
             [
                 InlineKeyboardButton(
-                    text=f"👤 {username} ({status_icon} {'فعال' if status == 'ACTIVE' else 'غیرفعال'})",
+                    text=f"👤 {username} ({usage_percent}% - {days_remaining} روز)",
                     callback_data=f"account:{account.get('uuid')}",
                 )
             ]
@@ -174,18 +173,18 @@ def account_list_kb(accounts: list[dict], lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
-def account_detail_kb(uuid: str, lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔗 دریافت لینک", callback_data=f"account:link:{uuid}"),
-                InlineKeyboardButton(
-                    text="💳 سابقه پرداخت", callback_data=f"account:payment:{uuid}"
-                ),
-            ],
-            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="account:list")],
-        ]
-    )
+def account_detail_kb(
+    uuid: str, lang: str, days_remaining: int = None, volume_remaining: str = None
+) -> InlineKeyboardMarkup:
+    buttons = [
+        [
+            InlineKeyboardButton(text="💳 سابقه پرداخت", callback_data=f"account:payment:{uuid}"),
+            InlineKeyboardButton(text="🔗 دریافت لینک", callback_data=f"account:link:{uuid}"),
+        ],
+        [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="account:list")],
+    ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def wallet_main_kb(lang: str, balance: int = 0) -> InlineKeyboardMarkup:
@@ -265,10 +264,8 @@ def admin_main_kb(lang: str = "fa") -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="👥 مدیریت کاربران", callback_data="admin:users"),
             ],
             [
-                InlineKeyboardButton(text="📦 مدیریت بسته‌ها", callback_data="admin:packages"),
-            ],
-            [
                 InlineKeyboardButton(text="💾 پشتیبان‌گیری", callback_data="admin:backup"),
+                InlineKeyboardButton(text="📦 مدیریت بسته‌ها", callback_data="admin:packages"),
             ],
             [
                 InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="menu:back"),
@@ -281,8 +278,8 @@ def admin_users_kb(lang: str = "fa") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="➕ افزودن کاربر جدید", callback_data="admin:user:add"),
                 InlineKeyboardButton(text="📋 لیست کاربران", callback_data="admin:user:list"),
+                InlineKeyboardButton(text="➕ افزودن کاربر جدید", callback_data="admin:user:add"),
             ],
             [
                 InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:user:search"),
@@ -299,27 +296,36 @@ def admin_stats_kb(lang: str = "fa") -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🟢 آنلاین 24 ساعت اخیر", callback_data="admin:stats:active_24h"
+                    text="🟢 آنلاین (۵ دقیقه تا ۱ روز)", callback_data="admin:stats:online"
                 ),
                 InlineKeyboardButton(
-                    text="🟡 غیرفعال 1 تا 7 روز", callback_data="admin:stats:inactive_7d"
+                    text="🟢 آنلاین (همین الان)", callback_data="admin:stats:online_now"
                 ),
             ],
             [
                 InlineKeyboardButton(text="🔴 هرگز متصل نشده", callback_data="admin:stats:never"),
                 InlineKeyboardButton(
-                    text="👥 لیست کاربران ربات", callback_data="admin:stats:all_users"
+                    text="🟡 غیرفعال (۱-۷ روز)", callback_data="admin:stats:inactive_7d"
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="💰 موجودی کاربران", callback_data="admin:stats:balances"
                 ),
+                InlineKeyboardButton(
+                    text="👥 لیست کاربران ربات", callback_data="admin:stats:bot_users"
+                ),
             ],
             [
                 InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:panel"),
             ],
         ]
+    )
+
+
+def admin_stats_back_kb(lang: str = "fa") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:stats")]]
     )
 
 
@@ -337,6 +343,23 @@ def admin_user_list_kb(page: int, total_pages: int, lang: str = "fa") -> InlineK
     if nav_buttons:
         kb.append(nav_buttons)
     kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:users")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def admin_bot_user_list_kb(page: int, total_pages: int, lang: str = "fa") -> InlineKeyboardMarkup:
+    kb = []
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(
+            InlineKeyboardButton(text="⬅️ قبلی", callback_data=f"admin:stats:bot_users:{page - 1}")
+        )
+    if page < total_pages - 1:
+        nav_buttons.append(
+            InlineKeyboardButton(text="بعدی ➡️", callback_data=f"admin:stats:bot_users:{page + 1}")
+        )
+    if nav_buttons:
+        kb.append(nav_buttons)
+    kb.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:stats")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
@@ -408,10 +431,8 @@ def admin_packages_kb(lang: str = "fa") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="➕ افزودن بسته جدید", callback_data="admin:package:add"),
-            ],
-            [
                 InlineKeyboardButton(text="📋 لیست بسته‌ها", callback_data="admin:package:list"),
+                InlineKeyboardButton(text="➕ افزودن بسته جدید", callback_data="admin:package:add"),
             ],
             [
                 InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:panel"),
@@ -468,18 +489,22 @@ def user_packages_category_kb(lang: str = "fa") -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="💰 اقتصادی" if lang == "fa" else "💰 Economy",
-                    callback_data="packages:category:economy",
-                ),
-                InlineKeyboardButton(
                     text="👑 ویژه (VIP)" if lang == "fa" else "👑 VIP",
                     callback_data="packages:category:vip",
+                ),
+                InlineKeyboardButton(
+                    text="💰 اقتصادی" if lang == "fa" else "💰 Economy",
+                    callback_data="packages:category:economy",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="🌐 تانل" if lang == "fa" else "🌐 Tunnel",
                     callback_data="packages:category:tunnel",
+                ),
+                InlineKeyboardButton(
+                    text="👑 ویژه پلاس (VIP+)" if lang == "fa" else "👑 VIP+",
+                    callback_data="packages:category:vip_plus",
                 ),
             ],
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")],
@@ -499,14 +524,20 @@ def user_packages_kb(
     category_names = {
         "economy": "💰 اقتصادی",
         "vip": "👑 ویژه",
+        "vip_plus": "👑 ویژه پلاس",
         "tunnel": "🌐 تانل",
     }
 
     category_descriptions = {
-        "economy": "کشورها : 🇩🇪 , 🇫🇮" if lang == "fa" else "Countries: 🇩🇪 , 🇫🇮",
-        "vip": "کشورها : 🇩🇪 , 🇫🇮 , 🇦🇱 , 🇳🇱 , 🇺🇸"
+        "economy": "بسته های اقتصادی شامل کشورهای 🇩🇪, 🇫🇮 است."
         if lang == "fa"
-        else "Countries: 🇩🇪 , 🇫🇮 , 🇦🇱 , 🇳🇱 , 🇺🇸",
+        else "Economy packages include 🇩🇪, 🇫🇮.",
+        "vip": "بسته های Vip شامل کشورهای 🇩🇪, 🇫🇮, 🇳🇱, 🇹🇷 است."
+        if lang == "fa"
+        else "VIP packages include 🇩🇪, 🇫🇮, 🇳🇱, 🇹🇷.",
+        "vip_plus": "بسته های +vip شامل کشورهای 🇩🇪, 🇫🇮, 🇳🇱, 🇹🇷, 🇦🇱, 🇺🇸 است."
+        if lang == "fa"
+        else "VIP+ packages include 🇩🇪, 🇫🇮, 🇳🇱, 🇹🇷, 🇦🇱, 🇺🇸.",
         "tunnel": "اینترنت مصرفی با نیم‌بها" if lang == "fa" else "Half-price internet",
     }
 
@@ -523,7 +554,7 @@ def user_packages_kb(
 
         lines.append(
             f"• <b>{pkg.name}</b>\n"
-            f"  💾 {pkg.volume_gb} GB | 📅 {pkg.days} {'day' if lang != 'fa' else 'روز'} | 💰 {price_text} {'تومان' if lang == 'fa' else 'IRR'}"
+            f"💾 {pkg.volume_gb} GB | 📅 {pkg.days} {'Day' if lang != 'fa' else 'روز'} | 💰 {price_text} {'تومان' if lang == 'fa' else 'IRR'}"
         )
 
         btn_text = f"{status_icon} {pkg.name} ({price_text} {'تومان' if lang == 'fa' else 'IRR'})"
